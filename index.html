@@ -1,0 +1,2793 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>営業管理ダッシュボード EXECUTIVE VIEW</title>
+  <!-- Tailwind CSS & Font Awesome & Chart.js -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+    
+    body {
+      font-family: 'Inter', 'Noto Sans JP', sans-serif;
+      background-color: #f8f9fa;
+    }
+    
+    /* Googleカラー定義のユーティリティ */
+    .google-blue { color: #1a73e8; }
+    .bg-google-blue { background-color: #1a73e8; }
+    .bg-google-blue-light { background-color: rgba(26, 115, 232, 0.08); }
+    
+    .google-red { color: #ea4335; }
+    .bg-google-red { background-color: #ea4335; }
+    .bg-google-red-light { background-color: rgba(234, 67, 53, 0.08); }
+    
+    .google-yellow { color: #fbbc05; }
+    .bg-google-yellow { background-color: #fbbc05; }
+    .bg-google-yellow-light { background-color: rgba(251, 188, 5, 0.08); }
+    
+    .google-green { color: #34a853; }
+    .bg-google-green { background-color: #34a853; }
+    .bg-google-green-light { background-color: rgba(52, 168, 83, 0.08); }
+
+    /* ガラスモフィズムと滑らかなアニメーション効果 */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(226, 232, 240, 0.8);
+    }
+    
+    .transition-all-300 {
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* レンジスライダーのカスタムスタイル */
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #1a73e8;
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.2);
+    }
+
+    /* ダイアログ（設定モーダル）のアニメーション */
+    dialog::backdrop {
+      background: rgba(15, 23, 42, 0.45);
+      backdrop-filter: blur(4px);
+    }
+    dialog[open] {
+      animation: zoomIn 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes zoomIn {
+      to { transform: scale(1); opacity: 1; }
+    }
+    .active-card {
+      border-color: #3b82f6 !important;
+      box-shadow: 0 0 15px rgba(59, 130, 246, 0.4) !important;
+      transform: scale(1.02) translateY(-2px) !important;
+      background-image: linear-gradient(to bottom right, rgba(59, 130, 246, 0.15), rgba(99, 102, 241, 0.15)) !important;
+    }
+    /* スクロールバーのカスタマイズ */
+    #pipeline-scorecard-board::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    #pipeline-scorecard-board::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 4px;
+    }
+    #pipeline-scorecard-board::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    #pipeline-scorecard-board::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="text-slate-800 antialiased min-h-screen pb-12">
+
+  <!-- ヘッダーナビゲーション -->
+  <nav class="bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex flex-wrap justify-between items-center sticky top-0 z-50 shadow-sm">
+    <div class="flex items-center space-x-3">
+      <div class="p-2.5 bg-gradient-to-tr from-blue-600 to-indigo-600 rounded-xl text-white shadow-lg shadow-blue-500/20">
+        <i class="fa-solid fa-chart-line text-xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg md:text-xl font-black tracking-tight text-slate-900 flex items-center gap-2">
+          営業管理ダッシュボード <span class="text-xs bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded-full border border-slate-200">EXECUTIVE VIEW</span>
+        </h1>
+        <p class="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Realtime Simulator for CXO Decision Making</p>
+      </div>
+    </div>
+    
+    <!-- フィルタ・予算目標フォーム・設定ボタン -->
+    <div class="flex flex-wrap items-center gap-4 mt-3 sm:mt-0">
+      <!-- ローカルデバッグバッジ -->
+      <div id="debug-badge" class="hidden px-2.5 py-1 text-xs font-black bg-amber-100 text-amber-800 border border-amber-200 rounded-lg animate-pulse">
+        <i class="fa-solid fa-triangle-exclamation mr-1"></i> ローカルデバッグモード
+      </div>
+
+      <div class="flex flex-col">
+        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">売上年度フィルタ</label>
+        <select id="filter-year" class="bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-32 p-2 shadow-sm transition-all" onchange="processAndRender()">
+          <option value="すべて">すべての年度</option>
+        </select>
+      </div>
+      
+      <div class="flex flex-col">
+        <label class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">当期総予算 (M円)</label>
+        <div class="relative rounded-md shadow-sm">
+          <input type="number" id="input-budget" value="250" readonly class="bg-slate-100 border border-slate-300 text-slate-500 text-xs font-black rounded-lg block w-28 p-2 pr-6 shadow-sm transition-all" title="月別予算の自動集計値です（設定画面から変更可能）">
+          <div class="absolute inset-y-0 right-0 pr-2.5 flex items-center pointer-events-none">
+            <span class="text-slate-400 text-[10px] font-bold">M</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 設定画面トリガーボタン -->
+      <div class="flex flex-col justify-end h-full pt-4">
+        <button type="button" onclick="openMappingDialog()" class="bg-slate-800 hover:bg-slate-900 border border-slate-700 text-white text-xs font-bold rounded-lg p-2.5 shadow-sm transition-all flex items-center gap-1.5" title="各種マッピング・予算を設定">
+          <i class="fa-solid fa-sliders"></i> <span>システム設定</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- カラム設定・予算設定モーダル (dialog) -->
+  <dialog id="mapping-dialog" class="rounded-2xl border border-slate-200 shadow-2xl glass-card max-w-2xl w-full p-0 overflow-hidden">
+    <div class="bg-slate-900 text-white p-5 flex justify-between items-center">
+      <div class="flex items-center space-x-2">
+        <i class="fa-solid fa-gears text-indigo-400"></i>
+        <h3 class="font-extrabold text-sm">システム環境設定</h3>
+      </div>
+      <button onclick="closeMappingDialog()" class="text-slate-400 hover:text-white transition-colors">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+    </div>
+    
+    <!-- タブヘッダー -->
+    <div class="flex border-b border-slate-200 bg-slate-50 px-6">
+      <button onclick="switchTab('mapping-tab')" id="tab-mapping-btn" class="py-3 px-4 text-xs font-black border-b-2 border-blue-600 text-blue-600 transition-all">
+        <i class="fa-solid fa-table-columns mr-1"></i> カラム紐付け設定
+      </button>
+      <button onclick="switchTab('budget-tab')" id="tab-budget-btn" class="py-3 px-4 text-xs font-black border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all">
+        <i class="fa-solid fa-calendar-check mr-1"></i> 月別予算金額設定
+      </button>
+      <button onclick="switchTab('rate-tab')" id="tab-rate-btn" class="py-3 px-4 text-xs font-black border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all">
+        <i class="fa-solid fa-percent mr-1"></i> デフォルト受注率設定
+      </button>
+    </div>
+    
+    <div class="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+      
+      <!-- タブ1: カラムマッピング設定 -->
+      <div id="mapping-tab" class="space-y-4">
+        <p class="text-xs text-slate-500 leading-relaxed">
+          ダッシュボードで集計に用いる各種項目と、スプレッドシートの「案件マスタ」シートの1行目に記載されているヘッダー名を紐づけます。設定はスプレッドシートの **「ダッシュボード設定」** シートに自動保存されます。
+        </p>
+        
+        <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
+              <tr>
+                <th class="px-4 py-3">ダッシュボードキー</th>
+                <th class="px-4 py-3">マスタシート列名（ドロップダウン選択）</th>
+              </tr>
+            </thead>
+            <tbody id="mapping-table-body" class="divide-y divide-slate-100 text-slate-600 font-medium">
+              <!-- JSで動的に設定行を挿入 -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="flex justify-end pt-2">
+          <button onclick="saveMappingSettings()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-floppy-disk"></i> マッピング設定を保存
+          </button>
+        </div>
+      </div>
+      
+      <!-- タブ2: 月別予算設定 -->
+      <div id="budget-tab" class="space-y-4 hidden">
+        <p class="text-xs text-slate-500 leading-relaxed">
+          設定対象の年度を選択し、各年月ごとの予算を設定します。入力した予算額はスプレッドシートの **「月別予算設定」** シートに保存され、予実管理グラフの目標ラインおよび総予算金額として自動適用されます。
+        </p>
+        
+        <!-- 年度選択ボックス -->
+        <div class="flex items-center space-x-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+          <label class="text-xs font-bold text-slate-600"><i class="fa-solid fa-calendar-days text-green-600 mr-1"></i>設定対象年度:</label>
+          <select id="budget-select-year" class="bg-white border border-slate-300 text-slate-800 text-xs font-bold rounded-lg block p-2 shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 w-40" onchange="onBudgetYearChange()">
+            <option value="25年度">25年度</option>
+            <option value="26年度">26年度</option>
+            <option value="27年度">27年度</option>
+            <option value="28年度">28年度</option>
+            <option value="29年度">29年度</option>
+            <option value="30年度">30年度</option>
+          </select>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 gap-4" id="budget-inputs-container">
+          <!-- 12ヶ月分の入力フィールドがJSにより自動生成されます -->
+        </div>
+        
+        <div class="flex justify-end pt-2 border-t border-slate-100">
+          <button onclick="saveBudgetSettings()" class="bg-green-600 hover:bg-green-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-floppy-disk"></i> 月別予算を保存
+          </button>
+        </div>
+      </div>
+      
+      <!-- タブ3: デフォルト受注率設定 -->
+      <div id="rate-tab" class="space-y-4 hidden">
+        <p class="text-xs text-slate-500 leading-relaxed">
+          商談ステータス（フェーズ）ごとのデフォルトの受注率（0〜100%）を設定します。ここで保存した値は、ダッシュボードの初期表示確率および「リセット」ボタン押下時の復元確率として適用されます。設定はスプレッドシートの **「受注率設定」** シートに保存されます。
+        </p>
+        
+        <div class="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+          <table class="w-full text-xs text-left">
+            <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-bold">
+              <tr>
+                <th class="px-4 py-3">商談ステータス</th>
+                <th class="px-4 py-3">デフォルト受注率（%）</th>
+              </tr>
+            </thead>
+            <tbody id="rate-table-body" class="divide-y divide-slate-100 text-slate-600 font-medium">
+              <!-- JSで動的に設定行を挿入 -->
+            </tbody>
+          </table>
+        </div>
+        
+        <div class="flex justify-end pt-2">
+          <button onclick="saveRateSettings()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm">
+            <i class="fa-solid fa-floppy-disk"></i> デフォルト受注率を保存
+          </button>
+        </div>
+      </div>
+      
+    </div>
+    
+    <div class="bg-slate-50 p-4 border-t border-slate-200 flex justify-end">
+      <button onclick="closeMappingDialog()" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">
+        閉じる
+      </button>
+    </div>
+  </dialog>
+
+  <!-- 初期ローディング画面 -->
+  <div id="loading-screen" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex flex-col justify-center items-center z-50 transition-all duration-300">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm text-center border border-slate-100">
+      <div class="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-blue-600 mb-4"></div>
+      <h2 class="text-base font-bold text-slate-800 animate-pulse mb-1">データ及びマッピング情報を同期中...</h2>
+      <p class="text-xs text-slate-400">リアルタイム計算の準備を行っています。</p>
+    </div>
+  </div>
+
+  <!-- メインレイアウト -->
+  <main class="p-6 max-w-[1600px] mx-auto grid grid-cols-1 xl:grid-cols-4 gap-6">
+    
+    <!-- 左サイドバー: シミュレーションパラメータ設定 -->
+    <div class="xl:col-span-1 space-y-6">
+      <div class="glass-card rounded-2xl p-5 shadow-sm sticky top-24">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-3 mb-4">
+          <div class="flex items-center space-x-2">
+            <i class="fa-solid fa-sliders text-blue-600 text-md"></i>
+            <h3 class="font-extrabold text-slate-800 text-sm">受注率シミュレーション</h3>
+          </div>
+          <!-- 一括リセットボタン -->
+          <button type="button" onclick="resetSimulationRates()" class="text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 font-extrabold px-2 py-1 rounded transition-colors flex items-center gap-1">
+            <i class="fa-solid fa-rotate-left"></i> リセット
+          </button>
+        </div>
+        
+        <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+          ステータスごとの受注見込み率（%）を操作し、着地見込みへの影響をリアルタイムに試算できます（数値降順）。
+        </p>
+        
+        <form id="sim-form" class="space-y-4">
+          <!-- 受注確定フェーズ (6〜8) -->
+          <div class="p-3.5 bg-green-50/50 rounded-xl border border-green-100">
+            <span class="text-[11px] font-bold text-green-700 block mb-2.5">
+              <i class="fa-solid fa-circle-check mr-1 text-green-600"></i> 受注確定フェーズ (6〜8)
+            </span>
+            <div class="space-y-3" id="group-high"></div>
+          </div>
+          
+          <!-- 提案・内諾フェーズ (4〜5) -->
+          <div class="p-3.5 bg-blue-50/50 rounded-xl border border-blue-100">
+            <span class="text-[11px] font-bold text-blue-700 block mb-2.5">
+              <i class="fa-solid fa-hourglass-half mr-1 text-blue-600"></i> 提案・内諾フェーズ (4〜5)
+            </span>
+            <div class="space-y-3" id="group-mid"></div>
+          </div>
+          
+          <!-- リード・初期商談フェーズ (1〜3) -->
+          <div class="p-3.5 bg-yellow-50/50 rounded-xl border border-yellow-100">
+            <span class="text-[11px] font-bold text-yellow-700 block mb-2.5">
+              <i class="fa-solid fa-bolt mr-1 text-yellow-600"></i> リード・初期商談フェーズ (1〜3)
+            </span>
+            <div class="space-y-3" id="group-low"></div>
+          </div>
+          
+          <!-- その他フェーズ -->
+          <div class="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+            <span class="text-[11px] font-bold text-slate-500 block mb-2.5">その他フェーズ</span>
+            <div class="space-y-3" id="group-other"></div>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- 右メインエリア -->
+    <div class="xl:col-span-3 space-y-6">
+      
+      <!-- KPIカード群 (STEP 1 ~ STEP 4) -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+        
+        <!-- STEP 1: 現在の受注額 -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all-300 hover:shadow-md hover:-translate-y-0.5 border-l-4 border-l-[#0F9D58]">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black text-slate-500 tracking-wider uppercase">STEP 1: 受注確定額</span>
+              <span class="px-2 py-0.5 text-[9px] font-black bg-green-100 text-green-800 rounded-full">確実値</span>
+            </div>
+            <div class="mt-3 flex items-baseline">
+              <span class="text-3xl font-black tracking-tight" id="kpi-step1" style="color: #0F9D58;">0.00</span>
+              <span class="text-xs font-bold text-slate-400 ml-1.5">M円</span>
+            </div>
+          </div>
+          <div class="mt-4 pt-3.5 border-t border-slate-100">
+            <p class="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center gap-1">
+              <i class="fa-solid fa-circle-check text-green-500"></i> 受注済（6〜8）内訳
+            </p>
+            <div class="space-y-1.5 max-h-[120px] overflow-y-auto pr-1" id="step1-breakdown">
+              <span class="text-[10px] text-slate-400">算出中...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- STEP 2: 未受注の受注率割戻し合計 -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all-300 hover:shadow-md hover:-translate-y-0.5 border-l-4 border-l-[#F4B400]">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black text-slate-500 tracking-wider uppercase">STEP 2: 未受注予測額</span>
+              <span class="px-2 py-0.5 text-[9px] font-black bg-amber-100 text-amber-800 rounded-full">ヨミ値</span>
+            </div>
+            <div class="mt-3 flex items-baseline">
+              <span class="text-3xl font-black tracking-tight" id="kpi-step2" style="color: #F4B400;">0.00</span>
+              <span class="text-xs font-bold text-slate-400 ml-1.5">M円</span>
+            </div>
+          </div>
+          <div class="mt-4 pt-3.5 border-t border-slate-100">
+            <p class="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center gap-1">
+              <i class="fa-solid fa-list-check text-amber-500"></i> 未受注（1〜5）計算根拠
+            </p>
+            <div class="space-y-1.5 max-h-[120px] overflow-y-auto pr-1" id="step2-breakdown">
+              <span class="text-[10px] text-slate-400">算出中...</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- STEP 3: 着地見込み (①＋②) -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all-300 hover:shadow-md hover:-translate-y-0.5 border-l-4 border-l-blue-500">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black text-blue-600 tracking-wider uppercase">STEP 3: 売上着地見込み</span>
+              <span class="p-1 bg-blue-50 text-blue-600 rounded-lg text-xs flex items-center justify-center h-5 w-5"><i class="fa-solid fa-calculator animate-pulse"></i></span>
+            </div>
+            <div class="mt-3 flex items-baseline">
+              <span class="text-3xl font-black text-blue-600 tracking-tight" id="kpi-step3">0.00</span>
+              <span class="text-xs font-bold text-blue-500 ml-1.5">M円</span>
+            </div>
+          </div>
+          <div class="mt-4 text-[10px] text-slate-400 font-semibold leading-relaxed">
+            受注確定値(STEP1)に、確度調整を掛けた未受注予測額(STEP2)を加算した総合見込み。
+          </div>
+        </div>
+        
+        <!-- STEP 4: 予算ギャップ -->
+        <div id="card-step4" class="glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all-300 hover:shadow-md hover:-translate-y-0.5 border-l-4 border-l-slate-400">
+          <div>
+            <div class="flex justify-between items-start">
+              <span class="text-[10px] font-black text-slate-500 tracking-wider uppercase">STEP 4: 予算目標ギャップ</span>
+              <span id="badge-step4" class="px-2 py-0.5 text-[9px] font-black rounded-full">分析</span>
+            </div>
+            <div class="mt-3 flex items-baseline">
+              <span class="text-3xl font-black tracking-tight" id="kpi-step4">0.00</span>
+              <span class="text-xs font-bold text-slate-400 ml-1.5">M円</span>
+            </div>
+          </div>
+          <div class="mt-4 pt-3.5 border-t border-slate-100">
+            <p class="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center gap-1">
+              <i class="fa-solid fa-chart-pie text-slate-500"></i> 予算・着地内訳
+            </p>
+            <div class="space-y-1.5 max-h-[120px] overflow-y-auto pr-1" id="step4-breakdown">
+              <span class="text-[10px] text-slate-400">算出中...</span>
+            </div>
+            <div class="mt-2 text-[9px] font-bold text-slate-400 flex items-center justify-between" id="text-step4">
+              <span>目標設定値に対する超過・不足</span>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- 視覚化グラフエリア (1段目: 月別売上推移vs外注費 8 / 予算達成ゲージ 4) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- 年度累積売上予実対比 (lg:col-span-8) -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm lg:col-span-8 flex flex-col justify-between">
+          <h4 class="font-extrabold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-line text-emerald-600"></i> 年度累積売上予実対比 (累積着地見込み vs 累積予算)
+          </h4>
+          <div class="h-56 relative">
+            <canvas id="cumulativeActualVsBudgetChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- 予算達成状況ゲージ (lg:col-span-4) -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm lg:col-span-4 flex flex-col justify-between">
+          <h4 class="font-extrabold text-slate-800 text-xs mb-2 flex items-center gap-1.5">
+            <i class="fa-solid fa-bullseye text-red-500"></i> 予算達成状況
+          </h4>
+          <div class="relative h-44 flex items-center justify-center">
+            <canvas id="gaugeChart"></canvas>
+            <!-- ゲージの中央（下部）に達成率を表示 -->
+            <div class="absolute flex flex-col items-center justify-center" style="bottom: 12%;">
+              <span class="text-[8px] text-slate-400 font-extrabold uppercase tracking-widest">達成率</span>
+              <span id="gauge-center-label" class="text-2xl font-black text-slate-800">0.0%</span>
+            </div>
+          </div>
+          <div class="text-center text-[10px] font-black text-slate-500 mt-1" id="gauge-label">
+            予算達成率: 0.0%
+          </div>
+        </div>
+        
+      </div>
+      
+      <!-- 視覚化グラフエリア (2段目: 営業パイプライン統合分析 [現残高 ＆ 過去の状態遷移フロー] 全幅上下配置) -->
+      <div class="grid grid-cols-1 gap-6">
+        
+        <div class="glass-card rounded-2xl p-5 shadow-sm flex flex-col">
+          <h4 class="font-extrabold text-slate-800 text-xs mb-3 flex items-center gap-1.5 border-b border-slate-100 pb-2.5">
+            <i class="fa-solid fa-route text-indigo-600 animate-pulse"></i> 営業パイプライン統合分析 (縦型ファネル・フロー)
+          </h4>
+          
+          <p class="text-[10px] text-slate-400 mb-3 font-bold leading-relaxed">
+            ※各フェーズをクリックすると、下部のアクティビティログが該当フェーズのデータに瞬時にフィルタリングされます。
+          </p>
+          
+          <!-- パイプライン状態遷移スコアボード (全幅縦方向配置) -->
+          <div id="pipeline-scorecard-board" class="flex flex-col gap-2.5 pr-1 max-h-[600px] overflow-y-auto mb-4">
+            <!-- JSでスコアカードと縦型コネクタが動的描画されます -->
+          </div>
+          
+          <div class="text-[9px] text-slate-400 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center font-bold mb-4">
+            ※流入フロー（履歴ベース）とパイプライン現残高を統合表示しています（金額は確度調整済）。
+          </div>
+
+          <!-- 下段: 直近1週間の変更アクティビティ (同じ全幅) -->
+          <div class="border-t border-slate-100 pt-4">
+            <h4 class="font-extrabold text-slate-800 text-xs mb-3 flex items-center justify-between h-6">
+              <span class="flex items-center gap-1.5">
+                <i class="fa-solid fa-clock-rotate-left text-slate-500"></i>
+                <span id="activity-log-title">直近1週間の変更アクティビティ</span>
+              </span>
+            </h4>
+            
+            <div class="overflow-x-auto overflow-y-auto max-h-[400px] border border-slate-100 rounded-xl">
+              <table class="w-full text-xs text-left text-slate-500">
+                <thead class="text-[9px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10 font-bold">
+                  <tr>
+                    <th class="px-4 py-3">変更日</th>
+                    <th class="px-4 py-3">案件名</th>
+                    <th class="px-4 py-3">推移</th>
+                    <th class="px-4 py-3 text-right">想定金額</th>
+                    <th class="px-4 py-3">担当</th>
+                  </tr>
+                </thead>
+                <tbody id="activity-log-body" class="divide-y divide-slate-100 text-[10px] font-medium text-slate-700">
+                  <!-- JSで直近変更の案件履歴が動的描画されます -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+
+      <!-- 視覚化グラフエリア (3段目: 新規受注（コンバージョン）推移 & 案件詳細 全幅) -->
+      <div class="grid grid-cols-1 gap-6">
+        
+        <div class="glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+          <div class="flex justify-between items-center mb-3 border-b border-slate-100 pb-2">
+            <h4 class="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+              <i class="fa-solid fa-award text-green-600 animate-bounce"></i> 新規受注（コンバージョン）推移 & 案件詳細
+            </h4>
+            <span class="text-xs bg-green-50 border border-green-100 text-green-600 font-bold px-2.5 py-1 rounded-md" id="new-orders-total-label">
+              合計新規受注額: 0.00M円
+            </span>
+          </div>
+          
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">月別新規受注額推移 (5以下 → 6〜8)</span>
+              <div class="h-56 relative">
+                <canvas id="newOrdersChart"></canvas>
+              </div>
+            </div>
+            <div>
+              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">新規受注化案件リスト</span>
+              <div class="overflow-x-auto overflow-y-auto h-56 border border-slate-100 rounded-xl">
+                <table class="w-full text-xs text-left text-slate-500">
+                  <thead class="text-[9px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10 font-bold">
+                    <tr>
+                      <th class="px-4 py-3">案件名 (取引先 - 概要)</th>
+                      <th class="px-4 py-3">変更前</th>
+                      <th class="px-4 py-3">変更後</th>
+                      <th class="px-4 py-3">売上月</th>
+                      <th class="px-4 py-3">担当</th>
+                      <th class="px-4 py-3 text-right">想定金額</th>
+                    </tr>
+                  </thead>
+                  <tbody id="new-orders-table-body" class="divide-y divide-slate-100 text-[10px] font-medium text-slate-700">
+                    <!-- JSで動的描画 -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+          <div class="text-[9px] text-slate-400 mt-3 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center font-bold">
+            ※未受注（5以下）から受注確定（6〜8）に変更された案件の月別金額集計および案件一覧
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 視覚化グラフエリア (4段目: フェーズ別売上積み上げ推移 全幅) -->
+      <div class="grid grid-cols-1 gap-6">
+        
+        <div class="glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+          <h4 class="font-extrabold text-slate-800 text-xs mb-3 flex items-center gap-1.5 border-b border-slate-100 pb-2.5">
+            <i class="fa-solid fa-chart-gantt text-indigo-500"></i> フェーズ別売上積み上げ推移
+          </h4>
+          <div class="h-64 relative">
+            <canvas id="funnelCumulativeChart"></canvas>
+          </div>
+          <div class="text-[9px] text-slate-400 mt-2 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center font-bold">
+            ※年月ごとの各商談フェーズ別ヨミ金額の積み上げ
+          </div>
+        </div>
+
+      </div>
+      
+      <!-- 予実管理エリア (3段目: 月別売上予実対比 8 / 年度累積売上予実対比 4 並列配置) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <!-- 月別売上予実対比 -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm lg:col-span-8 flex flex-col justify-between">
+          <h4 class="font-extrabold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-chart-simple text-blue-600"></i> 月別売上予実対比 (着地見込み vs 月別予算)
+          </h4>
+          <div class="h-[280px] relative">
+            <canvas id="monthlyActualVsBudgetChart"></canvas>
+          </div>
+        </div>
+        
+        <!-- 月別売上推移 vs 外注費用 (lg:col-span-4) -->
+        <div class="glass-card rounded-2xl p-5 shadow-sm lg:col-span-4 flex flex-col justify-between">
+          <h4 class="font-extrabold text-slate-800 text-xs mb-3 flex items-center gap-1.5">
+            <i class="fa-solid fa-calendar-days text-blue-600"></i> 月別売上推移 vs 外注費用
+          </h4>
+          <div class="h-[280px] relative">
+            <canvas id="monthlyChart"></canvas>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 取引先分類別 月別売上集計（クロス集計テーブル） -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+          <h4 class="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-table-cells text-blue-600"></i> 取引先分類別 月別売上集計 (売上着地見込み)
+          </h4>
+          <span class="text-xs bg-blue-50 border border-blue-100 text-blue-600 font-bold px-2.5 py-1 rounded-md">
+            単位: M円
+          </span>
+        </div>
+        
+        <div class="overflow-x-auto border border-slate-100 rounded-xl">
+          <table class="w-full text-xs text-left text-slate-500 min-w-[800px]">
+            <thead class="text-[10px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10 font-bold">
+              <tr id="cross-table-headers">
+                <!-- JSで動的レンダリング -->
+              </tr>
+            </thead>
+            <tbody id="cross-table-body" class="divide-y divide-slate-100 font-medium text-slate-700">
+              <!-- JSで動的レンダリング -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 取引先分類別 月別外注費用集計（クロス集計テーブル） -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+          <h4 class="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-table-cells text-red-500"></i> 取引先分類別 月別外注費用集計 (費用分類: 外注費用)
+          </h4>
+          <div class="flex items-center gap-3">
+            <span id="out-month-filter-badge" class="hidden text-[10px] bg-red-100 text-red-800 border border-red-200 font-bold px-2.5 py-1 rounded-md flex items-center gap-1">
+              <span id="out-month-filter-text">フィルタ中</span>
+              <button onclick="clearOutMonthFilter()" class="hover:text-red-950 font-black">×</button>
+            </span>
+            <span class="text-xs bg-red-50 border border-red-100 text-red-600 font-bold px-2.5 py-1 rounded-md">
+              単位: M円
+            </span>
+          </div>
+        </div>
+        
+        <div class="overflow-x-auto border border-slate-100 rounded-xl">
+          <table class="w-full text-xs text-left text-slate-500 min-w-[800px]">
+            <thead class="text-[10px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10 font-bold">
+              <tr id="out-cross-table-headers">
+                <!-- JSで動的レンダリング -->
+              </tr>
+            </thead>
+            <tbody id="out-cross-table-body" class="divide-y divide-slate-100 font-medium text-slate-700">
+              <!-- JSで動的レンダリング -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      <!-- 外注費用サマリーテーブル -->
+      <div class="glass-card rounded-2xl p-5 shadow-sm">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+          <h4 class="font-extrabold text-slate-800 text-xs flex items-center gap-1.5">
+            <i class="fa-solid fa-hand-holding-dollar text-red-500"></i> 外注費用サマリー (費用分類: 外注費用)
+          </h4>
+          <span class="text-xs bg-red-50 border border-red-100 text-red-600 font-bold px-2.5 py-1 rounded-md" id="total-outsourcing-label">
+            合計外注費: 0.00M
+          </span>
+        </div>
+        
+        <div class="overflow-x-auto max-h-56 overflow-y-auto border border-slate-100 rounded-xl">
+          <table class="w-full text-xs text-left text-slate-500">
+            <thead class="text-[10px] text-slate-700 uppercase bg-slate-50 border-b border-slate-200 sticky top-0 z-10 font-bold">
+              <tr>
+                <th class="px-4 py-3">発注先</th>
+                <th class="px-4 py-3">発注内容</th>
+                <th class="px-4 py-3">外注費用の見積依頼</th>
+                <th class="px-4 py-3">ステータス</th>
+                <th class="px-4 py-3">請求年月</th>
+                <th class="px-4 py-3 text-right">金額税抜(想定)</th>
+              </tr>
+            </thead>
+            <tbody id="outsourcing-table-body" class="divide-y divide-slate-100 font-medium text-slate-700">
+              <!-- JSで動的レンダリング -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- CXO特別経営インサイトパネル（利益率・コスト構造、最下段へ移動） -->
+      <div class="bg-gradient-to-r from-slate-900 to-indigo-950 rounded-2xl p-5 text-white shadow-lg flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+          <div class="p-2.5 bg-indigo-500/20 rounded-xl border border-indigo-500/30 text-indigo-400">
+            <i class="fa-solid fa-hand-holding-dollar text-lg"></i>
+          </div>
+          <div>
+            <h4 class="text-sm font-bold tracking-tight text-white flex items-center gap-2">
+              経営分析インサイト <span class="text-[9px] bg-indigo-500/20 text-indigo-300 font-extrabold px-1.5 py-0.5 rounded border border-indigo-500/20">PROFITABILITY</span>
+            </h4>
+            <p class="text-[10px] text-slate-400">売上着地(STEP3)と外注費用から算出される限界利益インサイト</p>
+          </div>
+        </div>
+        
+        <div class="flex flex-wrap gap-6 items-center">
+          <div class="flex flex-col">
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">限界利益 (売上着地-外注)</span>
+            <div class="flex items-baseline gap-1 mt-0.5">
+              <span id="insight-profit" class="text-xl font-black text-emerald-400">0.00</span>
+              <span class="text-[10px] font-bold text-slate-400">M円</span>
+            </div>
+          </div>
+          <div class="w-px h-8 bg-slate-800"></div>
+          <div class="flex flex-col">
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">限界利益率</span>
+            <div class="flex items-baseline gap-1 mt-0.5">
+              <span id="insight-profit-rate" class="text-xl font-black text-indigo-300">0.0%</span>
+            </div>
+          </div>
+          <div class="w-px h-8 bg-slate-800"></div>
+          <div class="flex flex-col">
+            <span class="text-[9px] font-bold text-slate-400 uppercase tracking-widest">外注費比率</span>
+            <div class="flex items-baseline gap-1 mt-0.5">
+              <span id="insight-out-ratio" class="text-xl font-black text-amber-400">0.0%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </main>
+
+  <script>
+    // グローバル状態
+    let rawDataGlobal = [];
+    let mappingConfigGlobal = {};
+    let monthlyBudgetsGlobal = {};
+    let simulationRatesGlobal = {};
+    let masterHeadersGlobal = [];
+    let changeHistoryGlobal = [];
+    let selectedStatusFilter = null;
+    let selectedOutsourcingMonth = null;
+    
+    // グラフインスタンスのプール
+    let gaugeChartInstance = null;
+    let monthlyChartInstance = null;
+    let monthlyActualVsBudgetChartInstance = null;
+    let cumulativeActualVsBudgetChartInstance = null;
+    let funnelCumulativeChartInstance = null;
+    let newOrdersChartInstance = null;
+    
+    // シミュレーション受注率のデフォルト初期値
+    const defaultSimulationRates = {
+      groupHigh: 100, // ステータス 6~8
+      groupMid: 80,   // ステータス 4~5
+      groupLow: 30,   // ステータス 1~3
+      groupOther: 0   // その他
+    };
+
+    // テスト用初期モックレスポンス（ローカル検証・デバッグ用）
+    const mockResponse = {
+      data: [
+        { id: 1, projectId: "PJ-001", clientCategory: "大手企業", clientName: "株式会社Aホールディングス", summary: "基幹システム刷新支援", status: "8.契約完了", costCategory: "売上", billingMonth: "2026-04", amountExpected: 45000000, amountConfirmed: 45000000, year: "26年度" },
+        { id: 2, projectId: "PJ-002", clientCategory: "メガベンチャー", clientName: "Bテクノロジーズ株式会社", summary: "AIチャットボット導入コンサル", status: "6.受注確定", costCategory: "売上", billingMonth: "2026-05", amountExpected: 30000000, amountConfirmed: 30000000, year: "26年度" },
+        { id: 3, projectId: "PJ-003", clientCategory: "中堅企業", clientName: "C商事株式会社", summary: "ECサイト構築支援", status: "5.内諾獲得", costCategory: "売上", billingMonth: "2026-06", amountExpected: 25000000, amountConfirmed: 20000000, year: "26年度" },
+        { id: 4, projectId: "PJ-004", clientCategory: "大手企業", clientName: "D自動車株式会社", summary: "グローバルマーケティング支援", status: "4.提案中", costCategory: "売上", billingMonth: "2026-07", amountExpected: 35000000, amountConfirmed: 0, year: "26年度" },
+        { id: 5, projectId: "PJ-005", clientCategory: "スタートアップ", clientName: "Eヘルステック合同会社", summary: "新規事業開発PoC", status: "3.見積提出", costCategory: "売上", billingMonth: "2026-08", amountExpected: 15000000, amountConfirmed: 0, year: "26年度" },
+        { id: 6, projectId: "PJ-006", clientCategory: "大手企業", clientName: "F通信株式会社", summary: "次世代通信システムPOC", status: "2.要件ヒアリング", costCategory: "売上", billingMonth: "2026-09", amountExpected: 50000000, amountConfirmed: 0, year: "26年度" },
+        { id: 7, projectId: "PJ-007", clientCategory: "中堅企業", clientName: "Gフードサービス株式会社", summary: "店舗管理アプリ開発", status: "1.アプローチ中", costCategory: "売上", billingMonth: "2026-10", amountExpected: 12000000, amountConfirmed: 0, year: "26年度" },
+        { id: 8, projectId: "PJ-008", clientCategory: "スタートアップ", clientName: "Hエナジー株式会社", summary: "SaaSシステム導入支援", status: "7.契約手続中", costCategory: "売上", billingMonth: "2026-11", amountExpected: 8000000, amountConfirmed: 8000000, year: "26年度" },
+        { id: 9, projectId: "PJ-009", clientCategory: "メガベンチャー", clientName: "Iエンターテインメント株式会社", summary: "メタバース事業戦略立案", status: "4.提案中", costCategory: "売上", billingMonth: "2026-12", amountExpected: 22000000, amountConfirmed: 0, year: "26年度" },
+        { id: 10, projectId: "PJ-010", clientCategory: "大手企業", clientName: "Jフィナンシャルグループ", summary: "DX人材育成研修", status: "6.受注確定", costCategory: "売上", billingMonth: "2027-01", amountExpected: 18000000, amountConfirmed: 18000000, year: "26年度" },
+        { id: 11, projectId: "PJ-011", clientCategory: "スタートアップ", clientName: "Kロボティクス株式会社", summary: "自律走行AIアルゴリズム開発", status: "5.内諾獲得", costCategory: "売上", billingMonth: "2027-02", amountExpected: 28000000, amountConfirmed: 0, year: "26年度" },
+        { id: 12, projectId: "PJ-012", clientCategory: "メガベンチャー", clientName: "Lコマース株式会社", summary: "物流最適化シミュレーション", status: "8.契約完了", costCategory: "売上", billingMonth: "2027-03", amountExpected: 40000000, amountConfirmed: 40000000, year: "26年度" },
+        { id: 20, projectId: "PJ-013", clientCategory: "中堅企業", clientName: "M製造株式会社", summary: "生産管理システムリプレイス（失注）", status: "9.失注", costCategory: "売上", billingMonth: "2026-08", amountExpected: 30000000, amountConfirmed: 0, year: "26年度" },
+        
+        { id: 13, projectId: "OUT-001", clientCategory: "パートナー", clientName: "株式会社パートナーA", summary: "PJ-001 開発外注費", status: "8.契約完了", costCategory: "外注費用", billingMonth: "2026-04", amountExpected: 15000000, amountConfirmed: 15000000, year: "26年度", vendor: "株式会社パートナーA", orderContent: "開発支援およびインフラ構築", estimateRequest: "見積依頼済 (15M)" },
+        { id: 14, projectId: "OUT-002", clientCategory: "フリーランス", clientName: "契約エンジニア山田", summary: "PJ-002 AIアルゴリズム実装", status: "6.受注確定", costCategory: "外注費用", billingMonth: "2026-05", amountExpected: 5000000, amountConfirmed: 5000000, year: "26年度", vendor: "山田太郎", orderContent: "AIアルゴリズムモジュール開発", estimateRequest: "見積受領済 (5M)" },
+        { id: 15, projectId: "OUT-003", clientCategory: "パートナー", clientName: "株式会社パートナーB", summary: "PJ-004 デザイン外注費", status: "4.提案中", costCategory: "外注費用", billingMonth: "2026-07", amountExpected: 8000000, amountConfirmed: 0, year: "26年度", vendor: "株式会社パートナーB", orderContent: "フロントUI/UXデザイン", estimateRequest: "見積依頼中 (8M)" },
+        
+        { id: 19, projectId: "PJ-2501", clientCategory: "大手企業", clientName: "株式会社Aホールディングス", summary: "PoCフェーズ1", status: "8.契約完了", costCategory: "売上", billingMonth: "2025-10", amountExpected: 15000000, amountConfirmed: 15000000, year: "25年度" }
+      ],
+      mapping: {
+        id: "ID",
+        projectId: "案件ID",
+        clientCategory: "取引先カテゴリ",
+        clientName: "取引先名",
+        summary: "案件概要",
+        status: "ステータス",
+        costCategory: "費用分類",
+        billingMonth: "請求年月",
+        amountExpected: "金額税抜（想定）",
+        amountConfirmed: "金額（確定）",
+        year: "売上年度",
+        vendor: "発注先",
+        orderContent: "発注内容",
+        estimateRequest: "外注費用の見積依頼"
+      },
+      monthlyBudgets: {
+        // 25年度
+        "2025-04": 20000000, "2025-05": 20000000, "2025-06": 20000000, "2025-07": 20000000, "2025-08": 20000000, "2025-09": 20000000,
+        "2025-10": 20000000, "2025-11": 20000000, "2025-12": 20000000, "2026-01": 20000000, "2026-02": 20000000, "2026-03": 20000000,
+        // 26年度
+        "2026-04": 25000000, "2026-05": 25000000, "2026-06": 25000000, "2026-07": 25000000, "2026-08": 25000000, "2026-09": 25000000,
+        "2026-10": 25000000, "2026-11": 25000000, "2026-12": 25000000, "2027-01": 25000000, "2027-02": 25000000, "2027-03": 25000000
+      },
+      masterHeaders: ["ID", "案件ID", "取引先カテゴリ", "取引先名", "案件概要", "ステータス", "費用分類", "請求年月", "金額税抜（想定）", "金額（確定）", "売上年度", "発注先", "発注内容", "外注費用の見積依頼"],
+      simulationRates: {
+        "1.アプローチ中": 30,
+        "2.要件ヒアリング": 30,
+        "3.見積提出": 30,
+        "4.提案中": 80,
+        "5.内諾獲得": 80,
+        "6.受注確定": 100,
+        "7.契約手続中": 100,
+        "8.契約完了": 100,
+        "9.失注": 0
+      },
+      changeHistory: [
+        { timestamp: "2026-04-01T09:00:00.000Z", projectId: "PJ-001", clientCategory: "大手企業", clientName: "株式会社Aホールディングス", summary: "基幹システム刷新支援", oldStatus: "(初期登録)", newStatus: "8.契約完了", salesRep: "営業A", costCategory: "売上", billingMonth: "2026-04", amountExpected: 45000000, year: "26年度" },
+        { timestamp: "2026-05-01T09:00:00.000Z", projectId: "PJ-002", clientCategory: "メガベンチャー", clientName: "Bテクノロジーズ株式会社", summary: "AIチャットボット導入コンサル", oldStatus: "(初期登録)", newStatus: "6.受注確定", salesRep: "営業B", costCategory: "売上", billingMonth: "2026-05", amountExpected: 30000000, year: "26年度" },
+        { timestamp: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), projectId: "PJ-003", clientCategory: "中堅企業", clientName: "C商事株式会社", summary: "ECサイト構築支援", oldStatus: "3.見積提出", newStatus: "5.内諾獲得", salesRep: "営業C", costCategory: "売上", billingMonth: "2026-06", amountExpected: 25000000, year: "26年度" },
+        { timestamp: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(), projectId: "PJ-004", clientCategory: "大手企業", clientName: "D自動車株式会社", summary: "グローバルマーケティング支援", oldStatus: "1.アプローチ中", newStatus: "4.提案中", salesRep: "営業A", costCategory: "売上", billingMonth: "2026-07", amountExpected: 35000000, year: "26年度" },
+        { timestamp: "2026-08-10T10:00:00.000Z", projectId: "PJ-005", clientCategory: "スタートアップ", clientName: "Eヘルステック合同会社", summary: "新規事業開発PoC", oldStatus: "4.提案中", newStatus: "6.受注確定", salesRep: "営業C", costCategory: "売上", billingMonth: "2026-08", amountExpected: 15000000, year: "26年度" },
+        { timestamp: "2026-11-01T09:00:00.000Z", projectId: "PJ-008", clientCategory: "スタートアップ", clientName: "Hエナジー株式会社", summary: "SaaSシステム導入支援", oldStatus: "3.見積提出", newStatus: "7.契約手続中", salesRep: "営業B", costCategory: "売上", billingMonth: "2026-11", amountExpected: 8000000, year: "26年度" },
+        { timestamp: "2027-01-01T09:00:00.000Z", projectId: "PJ-010", clientCategory: "大手企業", clientName: "Jフィナンシャルグループ", summary: "DX人材育成研修", oldStatus: "(初期登録)", newStatus: "6.受注確定", salesRep: "営業C", costCategory: "売上", billingMonth: "2027-01", amountExpected: 18000000, year: "26年度" },
+        { timestamp: "2027-03-01T09:00:00.000Z", projectId: "PJ-012", clientCategory: "メガベンチャー", clientName: "Lコマース株式会社", summary: "物流最適化シミュレーション", oldStatus: "(初期登録)", newStatus: "8.契約完了", salesRep: "営業A", costCategory: "売上", billingMonth: "2027-03", amountExpected: 40000000, year: "26年度" }
+      ]
+    };
+
+    // 初期ロード処理
+    window.addEventListener('DOMContentLoaded', () => {
+      const isLocal = window.location.protocol === 'file:' || typeof google === 'undefined' || typeof google.script === 'undefined';
+      
+      if (isLocal) {
+        document.getElementById('debug-badge').classList.remove('hidden');
+        
+        // localStorageからモック設定値があれば読み込み
+        const cachedMapping = localStorage.getItem('mock_mapping');
+        const cachedBudgets = localStorage.getItem('mock_budgets');
+        const cachedRates = localStorage.getItem('mock_rates');
+        if (cachedMapping) mockResponse.mapping = JSON.parse(cachedMapping);
+        if (cachedBudgets) mockResponse.monthlyBudgets = JSON.parse(cachedBudgets);
+        if (cachedRates) mockResponse.simulationRates = JSON.parse(cachedRates);
+        
+        initDashboard(mockResponse);
+      } else {
+        google.script.run
+          .withSuccessHandler(initDashboard)
+          .withFailureHandler(err => {
+            alert('データ取得エラー: ' + err.message);
+            document.getElementById('loading-screen').innerHTML = `
+              <div class="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm text-center border border-red-100">
+                <i class="fa-solid fa-triangle-exclamation text-red-500 text-3xl mb-3"></i>
+                <h2 class="text-base font-bold text-red-700 mb-1">同期エラーが発生しました</h2>
+                <p class="text-xs text-slate-500">${err.message}</p>
+              </div>
+            `;
+          })
+          .getRawMasterData();
+      }
+    });
+
+    /**
+     * ダッシュボードの初期化
+     */
+    function initDashboard(response) {
+      // 請求年月が空、未設定、または空白文字列のデータを除外
+      rawDataGlobal = (response.data || []).filter(item => {
+        return item.billingMonth && 
+               item.billingMonth !== '未設定' && 
+               item.billingMonth.toString().trim() !== '';
+      });
+      mappingConfigGlobal = response.mapping;
+      monthlyBudgetsGlobal = response.monthlyBudgets;
+      simulationRatesGlobal = response.simulationRates || {};
+      masterHeadersGlobal = response.masterHeaders || [];
+      changeHistoryGlobal = response.changeHistory || [];
+      
+      // 1. カラム設定プレビューモーダルのテーブル描画 (ドロップダウン化)
+      buildMappingSelectTable();
+
+      // 2. ユニークな売上年度を抽出してフィルタを動的に構築
+      const yearSelect = document.getElementById('filter-year');
+      const years = [...new Set(rawDataGlobal.map(item => item.year))].sort();
+      
+      yearSelect.innerHTML = '<option value="すべて">すべての年度</option>';
+      let selectedYearExists = false;
+      years.forEach(yr => {
+        if (yr && yr !== '未設定') {
+          const opt = document.createElement('option');
+          opt.value = yr;
+          opt.innerText = yr;
+          if (yr === '26年度') {
+            opt.selected = true;
+            selectedYearExists = true;
+          }
+          yearSelect.appendChild(opt);
+        }
+      });
+      if (!selectedYearExists && yearSelect.options.length > 1) {
+        yearSelect.selectedIndex = 1;
+      }
+      
+      // 3. ユニークなステータスを抽出し、数値の「降順」でソートしてシミュレーションフォームを構築
+      const statuses = [...new Set(rawDataGlobal.filter(item => item.costCategory === '売上').map(item => item.status))].filter(Boolean);
+      const sortedStatusesDesc = [...statuses].sort((a, b) => getStatusNumber(b) - getStatusNumber(a));
+      buildSimControls(sortedStatusesDesc);
+      
+      // 4. ローディング画面の非表示化
+      const loader = document.getElementById('loading-screen');
+      loader.classList.add('opacity-0', 'pointer-events-none');
+      
+      // 5. 初回描画の実行
+      processAndRender();
+    }
+
+    /**
+     * ステータス名からプレフィックス数値を抽出するヘルパー
+     */
+    function getStatusNumber(status) {
+      if (!status) return 0;
+      const match = status.toString().match(/\d+/);
+      return match ? parseInt(match[0], 10) : 0;
+    }
+
+    /**
+     * カラム設定編集テーブルをセレクトボックス形式で動的に構築
+     */
+    function buildMappingSelectTable() {
+      const tbody = document.getElementById('mapping-table-body');
+      tbody.innerHTML = '';
+      
+      const keyLabels = {
+        id: 'ID (一意なキー)',
+        projectId: '案件ID',
+        clientCategory: '取引先カテゴリ',
+        clientName: '取引先名',
+        summary: '案件概要',
+        status: '商談ステータス',
+        costCategory: '費用分類 (売上/外注費用)',
+        billingMonth: '請求年月',
+        amountExpected: '金額税抜 (想定)',
+        amountConfirmed: '金額 (確定)',
+        year: '売上年度',
+        vendor: '発注先',
+        orderContent: '発注内容',
+        estimateRequest: '外注費用の見積依頼'
+      };
+      
+      for (const key in mappingConfigGlobal) {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors';
+        
+        let selectHtml = `<select id="map-select-${key}" class="bg-slate-50 border border-slate-300 text-slate-800 text-xs font-bold rounded-lg focus:ring-1 focus:ring-blue-500 block w-full p-2.5">`;
+        
+        // マスタシートのヘッダーを選択肢として展開
+        masterHeadersGlobal.forEach(h => {
+          const isSelected = h === mappingConfigGlobal[key];
+          selectHtml += `<option value="${h}" ${isSelected ? 'selected' : ''}>${h}</option>`;
+        });
+        
+        // ヘッダー名がマスタに存在しない時のフォールバック
+        if (mappingConfigGlobal[key] && !masterHeadersGlobal.includes(mappingConfigGlobal[key])) {
+          selectHtml += `<option value="${mappingConfigGlobal[key]}" selected>${mappingConfigGlobal[key]} (マスタに存在しません)</option>`;
+        }
+        
+        selectHtml += `</select>`;
+        
+        tr.innerHTML = `
+          <td class="px-4 py-3.5 font-bold text-slate-800">${keyLabels[key] || key}</td>
+          <td class="px-4 py-3.5">${selectHtml}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    /**
+     * 月別予算入力フォームを構築 (選択年度に連動した12ヶ月)
+     */
+    function buildBudgetInputs(targetYear) {
+      const container = document.getElementById('budget-inputs-container');
+      container.innerHTML = '';
+      
+      // 年度に該当する年月リストを生成 (日本の会計年度: 4月〜翌3月)
+      let startYear = 2026; // デフォルト 26年度
+      if (targetYear !== 'すべて' && targetYear.includes('年度')) {
+        const parsedYear = parseInt(targetYear.replace('年度', ''), 10);
+        if (parsedYear >= 0) {
+          startYear = 2000 + parsedYear; // 26年度 -> 2026年
+        }
+      }
+      
+      const monthsList = [];
+      for (let m = 4; m <= 12; m++) {
+        monthsList.push(`${startYear}-${m < 10 ? '0' + m : m}`);
+      }
+      for (let m = 1; m <= 3; m++) {
+        monthsList.push(`${startYear + 1}-${'0' + m}`);
+      }
+      
+      monthsList.forEach(ym => {
+        // 円単位をM円（百万円）単位に変換して入力させる (例: 25,000,000円 -> 25.0M)
+        const budgetYen = monthlyBudgetsGlobal[ym] || 0;
+        const budgetM = (budgetYen / 1000000).toFixed(2);
+        
+        const div = document.createElement('div');
+        div.className = 'bg-white p-3.5 border border-slate-200 rounded-xl shadow-sm flex flex-col justify-between';
+        div.innerHTML = `
+          <label class="text-[10px] font-bold text-slate-500 uppercase mb-1">${ym}</label>
+          <div class="relative rounded-md shadow-sm">
+            <input type="number" 
+                   id="budget-input-${ym}" 
+                   value="${parseFloat(budgetM)}" 
+                   step="0.01" 
+                   class="bg-slate-50 border border-slate-300 text-slate-800 text-xs font-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2 pr-6 shadow-sm transition-all text-right">
+            <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+              <span class="text-slate-400 text-[10px] font-bold">M</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    /**
+     * 設定ダイアログの開閉とタブの切り替え
+     */
+    function openMappingDialog() {
+      const targetYear = document.getElementById('filter-year').value;
+      let budgetYear = '26年度';
+      if (targetYear !== 'すべて' && ['25年度', '26年度', '27年度', '28年度', '29年度', '30年度'].includes(targetYear)) {
+        budgetYear = targetYear;
+      }
+      document.getElementById('budget-select-year').value = budgetYear;
+      buildBudgetInputs(budgetYear);
+      document.getElementById('mapping-dialog').showModal();
+    }
+    function closeMappingDialog() {
+      document.getElementById('mapping-dialog').close();
+    }
+    
+    function switchTab(tabId) {
+      document.getElementById('mapping-tab').classList.add('hidden');
+      document.getElementById('budget-tab').classList.add('hidden');
+      document.getElementById('rate-tab').classList.add('hidden');
+      document.getElementById('tab-mapping-btn').className = "py-3 px-4 text-xs font-black border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all";
+      document.getElementById('tab-budget-btn').className = "py-3 px-4 text-xs font-black border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all";
+      document.getElementById('tab-rate-btn').className = "py-3 px-4 text-xs font-black border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition-all";
+      
+      document.getElementById(tabId).classList.remove('hidden');
+      if (tabId === 'mapping-tab') {
+        document.getElementById('tab-mapping-btn').className = "py-3 px-4 text-xs font-black border-b-2 border-blue-600 text-blue-600 transition-all";
+      } else if (tabId === 'budget-tab') {
+        document.getElementById('tab-budget-btn').className = "py-3 px-4 text-xs font-black border-b-2 border-green-600 text-green-600 transition-all";
+      } else if (tabId === 'rate-tab') {
+        document.getElementById('tab-rate-btn').className = "py-3 px-4 text-xs font-black border-b-2 border-indigo-600 text-indigo-600 transition-all";
+        buildRateTable();
+      }
+    }
+
+    /**
+     * 月別予算入力画面の年度が変更された時のハンドラー
+     */
+    function onBudgetYearChange() {
+      // 現在表示されている入力値を退避
+      const inputs = document.querySelectorAll('[id^="budget-input-"]');
+      inputs.forEach(input => {
+        const ym = input.id.replace('budget-input-', '');
+        const amountM = parseFloat(input.value) || 0;
+        monthlyBudgetsGlobal[ym] = Math.round(amountM * 1000000);
+      });
+      
+      // 新規選択年度の入力欄を描画
+      const selectedYear = document.getElementById('budget-select-year').value;
+      buildBudgetInputs(selectedYear);
+    }
+
+    /**
+     * GASの再リロードと再描画を行うSPAリフレッシュ関数 (真っ白化バグの解消)
+     */
+    function refreshDashboardData() {
+      const isLocal = window.location.protocol === 'file:' || typeof google === 'undefined' || typeof google.script === 'undefined';
+      
+      if (isLocal) {
+        initDashboard(mockResponse);
+      } else {
+        google.script.run
+          .withSuccessHandler(response => {
+            initDashboard(response);
+          })
+          .withFailureHandler(err => {
+            alert('データの再読み込みエラー: ' + err.message);
+            document.getElementById('loading-screen').classList.add('opacity-0', 'pointer-events-none');
+          })
+          .getRawMasterData();
+      }
+    }
+
+    /**
+     * フロントエンドからカラムマッピングの保存をトリガー
+     */
+    function saveMappingSettings() {
+      const newMapping = {};
+      for (const key in mappingConfigGlobal) {
+        newMapping[key] = document.getElementById(`map-select-${key}`).value;
+      }
+      
+      const isLocal = window.location.protocol === 'file:' || typeof google === 'undefined' || typeof google.script === 'undefined';
+      
+      document.getElementById('loading-screen').classList.remove('opacity-0', 'pointer-events-none');
+      
+      if (isLocal) {
+        localStorage.setItem('mock_mapping', JSON.stringify(newMapping));
+        setTimeout(() => {
+          alert('【モック】カラムマッピング設定を保存しました。');
+          closeMappingDialog();
+          refreshDashboardData();
+        }, 500);
+      } else {
+        google.script.run
+          .withSuccessHandler(() => {
+            alert('カラムマッピングを上書き保存しました。');
+            closeMappingDialog();
+            refreshDashboardData();
+          })
+          .withFailureHandler(err => {
+            alert('保存エラー: ' + err.message);
+            document.getElementById('loading-screen').classList.add('opacity-0', 'pointer-events-none');
+          })
+          .saveMappingConfig(newMapping);
+      }
+    }
+
+    /**
+     * フロントエンドから月別予算設定の保存をトリガー
+     */
+    function saveBudgetSettings() {
+      // 現在表示されている入力値を最終マージ
+      const inputs = document.querySelectorAll('[id^="budget-input-"]');
+      inputs.forEach(input => {
+        const ym = input.id.replace('budget-input-', '');
+        const amountM = parseFloat(input.value) || 0;
+        monthlyBudgetsGlobal[ym] = Math.round(amountM * 1000000);
+      });
+      
+      const isLocal = window.location.protocol === 'file:' || typeof google === 'undefined' || typeof google.script === 'undefined';
+      
+      document.getElementById('loading-screen').classList.remove('opacity-0', 'pointer-events-none');
+      
+      if (isLocal) {
+        localStorage.setItem('mock_budgets', JSON.stringify(monthlyBudgetsGlobal));
+        setTimeout(() => {
+          alert('【モック】月別予算データを保存しました。');
+          closeMappingDialog();
+          refreshDashboardData();
+        }, 500);
+      } else {
+        google.script.run
+          .withSuccessHandler(() => {
+            alert('月別予算の設定値を保存しました。');
+            closeMappingDialog();
+            refreshDashboardData();
+          })
+          .withFailureHandler(err => {
+            alert('保存エラー: ' + err.message);
+            document.getElementById('loading-screen').classList.add('opacity-0', 'pointer-events-none');
+          })
+          .saveMonthlyBudgets(monthlyBudgetsGlobal);
+      }
+    }
+
+    /**
+     * HTMLエスケープを行うヘルパー関数
+     */
+    function escapeHtml(str) {
+      if (typeof str !== 'string') return str;
+      return str.replace(/[&<>"']/g, function(m) {
+        return {
+          '&': '&amp;',
+          '<': '&lt;',
+          '>': '&gt;',
+          '"': '&quot;',
+          "'": '&#039;'
+        }[m];
+      });
+    }
+
+    /**
+     * ステータスに応じたシミュレーションパラメータUIの自動構築 (降順)
+     */
+    function buildSimControls(statuses) {
+      const gHigh = document.getElementById('group-high');
+      const gMid = document.getElementById('group-mid');
+      const gLow = document.getElementById('group-low');
+      const gOther = document.getElementById('group-other');
+      
+      gHigh.innerHTML = '';
+      gMid.innerHTML = '';
+      gLow.innerHTML = '';
+      gOther.innerHTML = '';
+      
+      statuses.forEach((status, index) => {
+        let defaultVal = 0;
+        let container = gOther;
+        
+        if (simulationRatesGlobal[status] !== undefined) {
+          defaultVal = simulationRatesGlobal[status];
+        } else {
+          if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+            defaultVal = defaultSimulationRates.groupHigh;
+          } else if (status.startsWith('4') || status.startsWith('5')) {
+            defaultVal = defaultSimulationRates.groupMid;
+          } else if (status.startsWith('1') || status.startsWith('2') || status.startsWith('3')) {
+            defaultVal = defaultSimulationRates.groupLow;
+          }
+        }
+        
+        if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+          container = gHigh;
+        } else if (status.startsWith('4') || status.startsWith('5')) {
+          container = gMid;
+        } else if (status.startsWith('1') || status.startsWith('2') || status.startsWith('3')) {
+          container = gLow;
+        }
+        
+        const div = document.createElement('div');
+        div.className = 'space-y-1 py-1';
+        div.innerHTML = `
+          <div class="flex items-center justify-between text-[11px] font-semibold text-slate-700">
+            <span class="truncate mr-2 max-w-[150px]" title="${escapeHtml(status)}">${escapeHtml(status)}</span>
+            <div class="flex items-center space-x-1">
+              <input type="number" 
+                     id="num-sim-${index}" 
+                     class="w-12 p-0.5 text-right border border-slate-300 rounded font-bold prob-input text-slate-800 bg-white"
+                     data-status="${escapeHtml(status)}" 
+                     data-index="${index}"
+                     value="${defaultVal}" 
+                     min="0" max="100"
+                     oninput="syncSimRate(${index}, 'number')">
+              <span class="text-slate-400">%</span>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2">
+            <input type="range" 
+                   id="range-sim-${index}" 
+                   class="w-full accent-blue-600 h-1 bg-slate-200 rounded-lg appearance-none cursor-pointer"
+                   value="${defaultVal}" 
+                   min="0" max="100"
+                   oninput="syncSimRate(${index}, 'range')">
+          </div>
+        `;
+        
+        container.appendChild(div);
+      });
+    }
+
+    /**
+     * スライダーと数値インプットの同期
+     */
+    function syncSimRate(index, srcType) {
+      const numInput = document.getElementById(`num-sim-${index}`);
+      const rangeInput = document.getElementById(`range-sim-${index}`);
+      
+      if (!numInput || !rangeInput) return;
+      
+      if (srcType === 'number') {
+        let val = parseInt(numInput.value) || 0;
+        if (val < 0) val = 0;
+        if (val > 100) val = 100;
+        numInput.value = val;
+        rangeInput.value = val;
+      } else {
+        numInput.value = rangeInput.value;
+      }
+      
+      processAndRender();
+    }
+
+    /**
+     * シミュレーション数値を初期デフォルト値にリセット
+     */
+    function resetSimulationRates() {
+      try {
+        console.log('Resetting simulation rates...');
+        document.querySelectorAll('.prob-input').forEach(input => {
+          const status = input.getAttribute('data-status');
+          const index = input.getAttribute('data-index');
+          if (!status) {
+            console.warn('prob-input element has no data-status:', input);
+            return;
+          }
+          let defaultVal = 0;
+          
+          if (simulationRatesGlobal[status] !== undefined) {
+            defaultVal = simulationRatesGlobal[status];
+          } else {
+            if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+              defaultVal = defaultSimulationRates.groupHigh;
+            } else if (status.startsWith('4') || status.startsWith('5')) {
+              defaultVal = defaultSimulationRates.groupMid;
+            } else if (status.startsWith('1') || status.startsWith('2') || status.startsWith('3')) {
+              defaultVal = defaultSimulationRates.groupLow;
+            }
+          }
+          
+          console.log(`Setting ${status} to ${defaultVal}`);
+          input.value = defaultVal;
+          const range = document.getElementById(`range-sim-${index}`);
+          if (range) {
+            range.value = defaultVal;
+          } else {
+            console.warn(`Range element not found for index: range-sim-${index}`);
+          }
+        });
+        
+        processAndRender();
+      } catch (e) {
+        console.error('Error in resetSimulationRates:', e);
+      }
+    }
+
+    /**
+     * メイン集計およびグラフの描画
+     */
+    function processAndRender() {
+      const targetYear = document.getElementById('filter-year').value;
+      
+      // 現在のシミュレーション受注率マップをロード
+      const probs = {};
+      document.querySelectorAll('.prob-input').forEach(input => {
+        probs[input.getAttribute('data-status')] = parseFloat(input.value) || 0;
+      });
+      
+      // 年度に該当する年月リストを生成 (日本の会計年度: 4月〜翌3月)
+      let startYear = 2026;
+      if (targetYear !== 'すべて' && targetYear.includes('年度')) {
+        const parsedYear = parseInt(targetYear.replace('年度', ''), 10);
+        if (parsedYear >= 0) startYear = 2000 + parsedYear;
+      }
+      
+      const months = [];
+      for (let m = 4; m <= 12; m++) months.push(`${startYear}-${m < 10 ? '0' + m : m}`);
+      for (let m = 1; m <= 3; m++) months.push(`${startYear + 1}-${'0' + m}`);
+      
+      // スプレッドシートから読み込んだ当期月別予算データを配列化 (M円換算)
+      let yearTotalBudgetYen = 0;
+      const monthlyBudgetPlan = months.map(ym => {
+        const budgetYen = monthlyBudgetsGlobal[ym] || 0;
+        yearTotalBudgetYen += budgetYen;
+        return budgetYen / 1000000;
+      });
+      
+      // 自動集計した当期総予算を目標予算額 (M円) としてセット
+      const budgetTarget = yearTotalBudgetYen / 1000000;
+      document.getElementById('input-budget').value = budgetTarget.toFixed(2);
+      
+      // 1. 年度によるフィルタリング
+      const filteredData = rawDataGlobal.filter(item => {
+        if (targetYear === 'すべて') return true;
+        return item.year === targetYear;
+      });
+      
+      // 2. 集計用変数の初期化
+      let step1Total = 0;
+      let step2Total = 0;
+      let totalOutsourcing = 0;
+      const step1Breakdown = {};
+      
+      // 各ステータスの現在残高（在庫）集計用
+      const currentPipeline = {};
+      
+      // Step2（未受注）の計算根拠用集計オブジェクト (想定額の合計、M円換算)
+      const step2Breakdown = {};
+      const step2Statuses = [...new Set(rawDataGlobal.filter(item => item.costCategory === '売上' && (item.status.startsWith('1') || item.status.startsWith('2') || item.status.startsWith('3') || item.status.startsWith('4') || item.status.startsWith('5'))).map(item => item.status))].filter(Boolean);
+      step2Statuses.forEach(st => { step2Breakdown[st] = 0; });
+      
+      // 取引先分類別 月別売上集計表（クロス集計）用変数の初期化
+      const crossCategories = [...new Set(filteredData.filter(item => item.costCategory === '売上').map(item => item.clientCategory ? item.clientCategory.toString().trim() : '未設定'))].sort();
+      const crossTableData = {};
+      crossCategories.forEach(cat => {
+        crossTableData[cat] = {};
+        months.forEach(ym => {
+          crossTableData[cat][ym] = 0;
+        });
+        crossTableData[cat]['total'] = 0; // 横計
+      });
+      
+      const crossColTotals = {}; // 縦計
+      months.forEach(ym => {
+        crossColTotals[ym] = 0;
+      });
+      let crossGrandTotal = 0; // 総合計
+
+      // 取引先分類別 月別外注費用集計表（クロス集計）用変数の初期化
+      const outCrossCategories = [...new Set(filteredData.filter(item => item.costCategory === '外注費用').map(item => item.clientCategory ? item.clientCategory.toString().trim() : '未設定'))].sort();
+      const outCrossTableData = {};
+      outCrossCategories.forEach(cat => {
+        outCrossTableData[cat] = {};
+        months.forEach(ym => {
+          outCrossTableData[cat][ym] = 0;
+        });
+        outCrossTableData[cat]['total'] = 0; // 横計
+      });
+      
+      const outCrossColTotals = {}; // 縦計
+      months.forEach(ym => {
+        outCrossColTotals[ym] = 0;
+      });
+      let outCrossGrandTotal = 0; // 総合計
+
+      // 外注費用サマリー用の生データ配列
+      const outsourcingItems = [];
+      
+      // ステータスごとのファネル集計（シミュレーション適用後のヨミ金額）
+      const funnelValues = {};
+      const uniqueStatuses = [...new Set(rawDataGlobal.filter(item => item.costCategory === '売上').map(item => item.status))].filter(Boolean);
+      uniqueStatuses.forEach(st => { funnelValues[st] = 0; });
+      
+      // カスタムソート順のフェーズ配列（失注を末尾に固定）
+      const sortedStatuses = [...uniqueStatuses].sort((a, b) => {
+        const isLossA = a.includes('失注');
+        const isLossB = b.includes('失注');
+        if (isLossA && !isLossB) return 1;
+        if (!isLossA && isLossB) return -1;
+        return getStatusNumber(a) - getStatusNumber(b);
+      });
+      
+      // フェーズ別 月別売上集計（積み上げグラフ用、M円換算）
+      const phaseMonthlySales = {};
+      sortedStatuses.forEach(st => {
+        phaseMonthlySales[st] = Array(12).fill(0);
+      });
+      
+      // 各ステータスの現在残高（在庫）集計およびスコアカード用集計オブジェクトの初期化
+      const scorecardData = {};
+      const pipelineOneWeekAgo = {};
+      sortedStatuses.forEach(st => {
+        currentPipeline[st] = { count: 0, amountExpected: 0, amountExpectedWon: 0 };
+        pipelineOneWeekAgo[st] = { count: 0, amountExpected: 0, amountExpectedWon: 0 };
+        scorecardData[st] = {
+          inflowCount: 0,
+          inflowAmount: 0,
+          inflowCountPrev: 0,
+          inflowAmountPrev: 0,
+          sources: {}
+        };
+      });
+      
+      // 月別集計用 (4月〜翌3月)
+      const monthlySales = Array(12).fill(0);
+      const monthlyOutsourcing = Array(12).fill(0);
+      
+      const outsourcingTableBody = document.getElementById('outsourcing-table-body');
+      outsourcingTableBody.innerHTML = '';
+      
+      // 3. データ集計ループ
+      filteredData.forEach(item => {
+        const prob = probs[item.status] !== undefined ? probs[item.status] : 0;
+        const amountM = item.amountExpected / 1000000;
+        
+        let monthIdx = -1;
+        if (item.billingMonth && item.billingMonth.includes('-')) {
+          monthIdx = months.indexOf(item.billingMonth);
+        }
+        
+        if (item.costCategory === '売上') {
+          const calculatedValue = amountM * (prob / 100);
+          
+          // 現在残高（在庫）の集計
+          if (currentPipeline[item.status] !== undefined) {
+            currentPipeline[item.status].count += 1;
+            currentPipeline[item.status].amountExpected += item.amountExpected;
+            currentPipeline[item.status].amountExpectedWon += calculatedValue;
+          }
+          
+          // STEP 1 の判定: 6〜8 (受注確定)
+          if (item.status.startsWith('6') || item.status.startsWith('7') || item.status.startsWith('8')) {
+            step1Total += calculatedValue;
+            step1Breakdown[item.status] = (step1Breakdown[item.status] || 0) + calculatedValue;
+          } 
+          // STEP 2 の判定: 1〜5 (未受注)
+          else if (item.status.startsWith('1') || item.status.startsWith('2') || item.status.startsWith('3') ||
+                   item.status.startsWith('4') || item.status.startsWith('5')) {
+            step2Total += calculatedValue;
+            if (step2Breakdown[item.status] !== undefined) {
+              step2Breakdown[item.status] += amountM;
+            }
+          }
+          
+          // 各フェーズごとのファネル売上集計
+          if (funnelValues[item.status] !== undefined) {
+            funnelValues[item.status] += calculatedValue;
+          }
+          
+          // 月別売上に加算 (シミュレーション適用後)
+          if (monthIdx !== -1) {
+            monthlySales[monthIdx] += calculatedValue;
+            if (phaseMonthlySales[item.status] !== undefined) {
+              phaseMonthlySales[item.status][monthIdx] += calculatedValue;
+            }
+          }
+          
+          // 取引先分類別 月別売上集計表（クロス集計）への加算（確度を掛けない生の想定金額、有効ステータス1〜8のみ）
+          const isTargetStatus = item.status.startsWith('1') || item.status.startsWith('2') || 
+                                 item.status.startsWith('3') || item.status.startsWith('4') || 
+                                 item.status.startsWith('5') || item.status.startsWith('6') || 
+                                 item.status.startsWith('7') || item.status.startsWith('8');
+          const cat = item.clientCategory ? item.clientCategory.toString().trim() : '未設定';
+          if (isTargetStatus && crossTableData[cat] && monthIdx !== -1) {
+            const ym = months[monthIdx];
+            crossTableData[cat][ym] += amountM;
+            crossTableData[cat]['total'] += amountM;
+            crossColTotals[ym] += amountM;
+            crossGrandTotal += amountM;
+          }
+          
+        } else if (item.costCategory === '外注費用') {
+          totalOutsourcing += amountM;
+          
+          if (monthIdx !== -1) {
+            monthlyOutsourcing[monthIdx] += amountM;
+          }
+
+          // 取引先分類別 月別外注費用集計表（クロス集計）への加算
+          const cat = item.clientCategory ? item.clientCategory.toString().trim() : '未設定';
+          if (outCrossTableData[cat] && monthIdx !== -1) {
+            const ym = months[monthIdx];
+            outCrossTableData[cat][ym] += amountM;
+            outCrossTableData[cat]['total'] += amountM;
+            outCrossColTotals[ym] += amountM;
+            outCrossGrandTotal += amountM;
+          }
+          
+          // 外注費用サマリー用データの蓄積
+          outsourcingItems.push(item);
+        }
+      });
+      
+      // 外注費用サマリーテーブルの描画（月別フィルタ対応）
+      let displayedOutsourcingTotal = 0;
+      const filteredOutsourcingItems = outsourcingItems.filter(item => {
+        if (!selectedOutsourcingMonth) return true;
+        return item.billingMonth === selectedOutsourcingMonth;
+      });
+      
+      filteredOutsourcingItems.forEach(item => {
+        const amountM = item.amountExpected / 1000000;
+        displayedOutsourcingTotal += amountM;
+        
+        const vendorVal = item.vendor || item.clientName || '未設定';
+        const orderContentVal = item.orderContent || item.summary || '未設定';
+        const estimateRequestVal = item.estimateRequest || '未設定';
+        
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors duration-150';
+        tr.innerHTML = `
+          <td class="px-4 py-2.5 font-semibold text-slate-900">${vendorVal}</td>
+          <td class="px-4 py-2.5 max-w-[200px] truncate" title="${orderContentVal}">${orderContentVal}</td>
+          <td class="px-4 py-2.5 text-slate-600">${estimateRequestVal}</td>
+          <td class="px-4 py-2.5"><span class="px-2 py-0.5 bg-red-50 text-red-700 border border-red-100 rounded text-[10px] font-bold">${item.status}</span></td>
+          <td class="px-4 py-2.5 font-bold text-slate-600">${item.billingMonth}</td>
+          <td class="px-4 py-2.5 text-right font-bold text-red-600">${amountM.toFixed(2)}M円</td>
+        `;
+        outsourcingTableBody.appendChild(tr);
+      });
+      
+      if (filteredOutsourcingItems.length === 0) {
+        outsourcingTableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-4 py-8 text-center text-slate-400 font-medium">該当する外注費用データはありません</td>
+          </tr>
+        `;
+      }
+      
+      // 4. STEP 3 & 4 の計算
+      const step3Total = step1Total + step2Total;
+      const step4Gap = step3Total - budgetTarget;
+      
+      // 経営分析指標 (限界利益・比率)
+      const marginProfit = step3Total - totalOutsourcing;
+      const marginProfitRate = step3Total > 0 ? (marginProfit / step3Total) * 100 : 0;
+      const outsourcingRatio = step3Total > 0 ? (totalOutsourcing / step3Total) * 100 : 0;
+      
+      // 5. KPI表示の画面更新
+      document.getElementById('kpi-step1').innerText = step1Total.toFixed(2);
+      document.getElementById('kpi-step2').innerText = step2Total.toFixed(2);
+      document.getElementById('kpi-step3').innerText = step3Total.toFixed(2);
+      document.getElementById('kpi-step4').innerText = (step4Gap >= 0 ? '+' : '') + step4Gap.toFixed(2);
+      // 合計外注費ラベルの更新（月選択時は該当月の合計）
+      const totalOutsourcingLabelText = selectedOutsourcingMonth 
+        ? `${selectedOutsourcingMonth} 合計外注費: ${displayedOutsourcingTotal.toFixed(2)}M円`
+        : `合計外注費: ${totalOutsourcing.toFixed(2)}M円`;
+      document.getElementById('total-outsourcing-label').innerText = totalOutsourcingLabelText;
+      
+      document.getElementById('insight-profit').innerText = marginProfit.toFixed(2);
+      document.getElementById('insight-profit-rate').innerText = marginProfitRate.toFixed(1) + '%';
+      document.getElementById('insight-out-ratio').innerText = outsourcingRatio.toFixed(1) + '%';
+      
+      // STEP 1 内訳の描画 (STEP 2 のトーン＆マナーに合わせたリスト形式)
+      const breakdownDiv = document.getElementById('step1-breakdown');
+      breakdownDiv.innerHTML = '';
+      const activeBreakdowns = Object.keys(step1Breakdown).sort();
+      let activeStep1Count = 0;
+      activeBreakdowns.forEach(st => {
+        const val = step1Breakdown[st];
+        if (val > 0) {
+          activeStep1Count++;
+          const row = document.createElement('div');
+          row.className = 'flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-50 pb-0.5';
+          row.innerHTML = `
+            <span class="truncate max-w-[85px]" title="${st}">${st}</span>
+            <span class="text-[9px] text-slate-500">確定額 = <span class="font-black text-slate-700">${val.toFixed(2)}M</span></span>
+          `;
+          breakdownDiv.appendChild(row);
+        }
+      });
+      if (activeStep1Count === 0) {
+        breakdownDiv.innerHTML = '<span class="text-[10px] text-slate-400 font-medium">該当なし</span>';
+      }
+      
+      // STEP 2 計算根拠の描画
+      const step2BreakdownDiv = document.getElementById('step2-breakdown');
+      if (step2BreakdownDiv) {
+        step2BreakdownDiv.innerHTML = '';
+        const sortedStep2Statuses = Object.keys(step2Breakdown).sort();
+        let activeStep2Count = 0;
+        
+        sortedStep2Statuses.forEach(st => {
+          const rawAmount = step2Breakdown[st];
+          const rate = probs[st] !== undefined ? probs[st] : 0;
+          const calcVal = rawAmount * (rate / 100);
+          
+          if (rawAmount > 0) {
+            activeStep2Count++;
+            const row = document.createElement('div');
+            row.className = 'flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-50 pb-0.5';
+            row.innerHTML = `
+              <span class="truncate max-w-[85px]" title="${st}">${st}</span>
+              <span class="text-[9px] text-slate-500">${rawAmount.toFixed(1)}M × ${rate}% = <span class="font-black text-slate-700">${calcVal.toFixed(2)}M</span></span>
+            `;
+            step2BreakdownDiv.appendChild(row);
+          }
+        });
+        if (activeStep2Count === 0) {
+          step2BreakdownDiv.innerHTML = '<span class="text-[10px] text-slate-400 font-medium">該当案件なし</span>';
+        }
+      }
+      
+      // STEP 4 アラート切り替えおよび内訳 (背景色は他と統一、左ボーダーのみ動的変化)
+      const card4 = document.getElementById('card-step4');
+      const badge4 = document.getElementById('badge-step4');
+      const text4 = document.getElementById('text-step4');
+      const step4BreakdownDiv = document.getElementById('step4-breakdown');
+      
+      // 内訳（予算と着地）の表示
+      if (step4BreakdownDiv) {
+        step4BreakdownDiv.innerHTML = `
+          <div class="flex justify-between items-center text-[10px] font-bold text-slate-500 border-b border-slate-50 pb-0.5">
+            <span>当期総予算</span>
+            <span class="font-black text-slate-700">${budgetTarget.toFixed(2)}M</span>
+          </div>
+          <div class="flex justify-between items-center text-[10px] font-bold text-slate-500">
+            <span>売上着地見込み</span>
+            <span class="font-black text-slate-700">${step3Total.toFixed(2)}M</span>
+          </div>
+        `;
+      }
+      
+      if (step4Gap >= 0) {
+        card4.className = "glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all-300 hover:shadow-md hover:-translate-y-0.5 border-l-4 border-l-green-600";
+        document.getElementById('kpi-step4').className = "text-3xl font-black text-green-600 tracking-tight";
+        badge4.className = "px-2 py-0.5 text-[9px] font-black bg-green-100 text-green-800 rounded-full";
+        text4.innerHTML = `<span class="text-green-600 font-bold flex items-center gap-1"><i class="fa-solid fa-circle-check"></i> 予算目標を達成中</span>`;
+      } else {
+        card4.className = "glass-card rounded-2xl p-5 shadow-sm flex flex-col justify-between transition-all-300 hover:shadow-md hover:-translate-y-0.5 border-l-4 border-l-red-500";
+        document.getElementById('kpi-step4').className = "text-3xl font-black text-red-600 tracking-tight";
+        badge4.className = "px-2 py-0.5 text-[9px] font-black bg-red-100 text-red-800 rounded-full";
+        text4.innerHTML = `<span class="text-red-500 font-bold flex items-center gap-1"><i class="fa-solid fa-triangle-exclamation"></i> 予算まで ${Math.abs(step4Gap).toFixed(2)}M 不足</span>`;
+      }
+      
+      // 6. 各フェーズごとのファネルチャートの自動構築 (スコアボードへ統合されたためコメントアウト)
+      // buildDynamicFunnel(funnelValues);
+
+      // 6.5 履歴データの集計 (ステータス変更履歴)
+      const newOrdersMonthlySales = Array(12).fill(0);
+      const newOrdersList = [];
+      
+      const transitionCounts = {};
+      sortedStatuses.forEach(st => {
+        transitionCounts[st] = Array(12).fill(0);
+      });
+      
+      // 直近1週間の変更アクティビティ用の配列
+      const recentActivities = [];
+      const today = new Date();
+      const oneWeekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+      
+      // 1週間前のデータセットの復元
+      const historyByProject = {};
+      changeHistoryGlobal.forEach(h => {
+        if (!h.projectId) return;
+        if (!historyByProject[h.projectId]) {
+          historyByProject[h.projectId] = [];
+        }
+        historyByProject[h.projectId].push(h);
+      });
+      for (const pid in historyByProject) {
+        historyByProject[pid].sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+      }
+
+      rawDataGlobal.forEach(item => {
+        if (item.costCategory !== '売上') return;
+
+        const pid = item.projectId;
+        let statusOneWeekAgo = item.status;
+        let amountOneWeekAgo = item.amountExpected;
+        let yearOneWeekAgo = item.year;
+        let existsOneWeekAgo = true;
+
+        if (pid && historyByProject[pid]) {
+          const pHistory = historyByProject[pid];
+          for (let i = pHistory.length - 1; i >= 0; i--) {
+            const h = pHistory[i];
+            const hDate = new Date(h.timestamp);
+            if (hDate > oneWeekAgo) {
+              statusOneWeekAgo = h.oldStatus;
+              amountOneWeekAgo = h.amountExpected !== undefined ? h.amountExpected : amountOneWeekAgo;
+              yearOneWeekAgo = h.year || yearOneWeekAgo;
+
+              if (statusOneWeekAgo === '(初期登録)' || statusOneWeekAgo === '(新規作成)' || statusOneWeekAgo === '(一括作成)') {
+                existsOneWeekAgo = false;
+                break;
+              }
+            }
+          }
+        }
+
+        if (existsOneWeekAgo && statusOneWeekAgo && pipelineOneWeekAgo[statusOneWeekAgo] !== undefined) {
+          let itemYear = yearOneWeekAgo;
+          if (!itemYear || itemYear === '未設定') {
+            itemYear = item.year; 
+          }
+          if (targetYear === 'すべて' || itemYear === targetYear) {
+            const prob = probs[statusOneWeekAgo] !== undefined ? probs[statusOneWeekAgo] : 0;
+            const amountM = amountOneWeekAgo / 1000000;
+            const calculatedValue = amountM * (prob / 100);
+
+            pipelineOneWeekAgo[statusOneWeekAgo].count += 1;
+            pipelineOneWeekAgo[statusOneWeekAgo].amountExpected += amountOneWeekAgo;
+            pipelineOneWeekAgo[statusOneWeekAgo].amountExpectedWon += calculatedValue;
+          }
+        }
+      });
+      
+      let totalNewOrdersAmount = 0;
+      
+      changeHistoryGlobal.forEach(item => {
+        // 【重要】費用分類が「売上」以外のトランザクションは除外
+        if (item.costCategory !== '売上') return;
+        
+        // 年度フィルターの適用
+        let itemYear = item.year;
+        if (!itemYear || itemYear === '未設定') {
+          // タイムスタンプから判定
+          const d = new Date(item.timestamp);
+          if (!isNaN(d.getTime())) {
+            const y = d.getFullYear();
+            const m = d.getMonth() + 1;
+            const fy = m >= 4 ? y : y - 1;
+            itemYear = (fy % 100) + '年度';
+          }
+        }
+        
+        if (targetYear !== 'すべて' && itemYear !== targetYear) {
+          return; // 該当年度以外は除外
+        }
+        
+        // タイムスタンプから月を特定
+        const date = new Date(item.timestamp);
+        if (isNaN(date.getTime())) return;
+        
+        const y = date.getFullYear();
+        const m = date.getMonth() + 1;
+        const ym = `${y}-${m < 10 ? '0' + m : m}`;
+        const monthIdx = months.indexOf(ym);
+        
+        if (monthIdx === -1) return; // 表示月（4月〜翌3月）の範囲外
+        
+        // パイプライン状態遷移（件数）の加算
+        if (transitionCounts[item.newStatus] !== undefined) {
+          transitionCounts[item.newStatus][monthIdx] += 1;
+        }
+        
+        // 1週間前のデータかどうかの判定
+        const isBeforeOneWeek = date < oneWeekAgo;
+        
+        // 各フェーズのスコアカード用集計の加算
+        if (scorecardData[item.newStatus] !== undefined) {
+          // 現在の累積
+          scorecardData[item.newStatus].inflowCount += 1;
+          scorecardData[item.newStatus].inflowAmount += item.amountExpected;
+          
+          // 1週間前の累積
+          if (isBeforeOneWeek) {
+            scorecardData[item.newStatus].inflowCountPrev += 1;
+            scorecardData[item.newStatus].inflowAmountPrev += item.amountExpected;
+          }
+          
+          const oldSt = item.oldStatus || '(新規作成)';
+          scorecardData[item.newStatus].sources[oldSt] = (scorecardData[item.newStatus].sources[oldSt] || 0) + 1;
+        }
+        
+        // 直近1週間以内の変化データをアクティビティ用に収集
+        if (date >= oneWeekAgo) {
+          recentActivities.push({
+            timestamp: item.timestamp,
+            dateObj: date,
+            clientName: item.clientName,
+            summary: item.summary,
+            oldStatus: item.oldStatus || '(新規作成)',
+            newStatus: item.newStatus,
+            amountExpected: item.amountExpected,
+            salesRep: item.salesRep || '未設定'
+          });
+        }
+        
+        // 新規受注（コンバージョン）の判定 (5以下から6,7,8に変更となった案件)
+        const isNewWon = item.newStatus.startsWith('6') || item.newStatus.startsWith('7') || item.newStatus.startsWith('8');
+        const isOldWon = item.oldStatus.startsWith('6') || item.oldStatus.startsWith('7') || item.oldStatus.startsWith('8');
+        const isConversionVal = isNewWon && !isOldWon;
+        
+        if (isConversionVal) {
+          const amountM = item.amountExpected / 1000000;
+          newOrdersMonthlySales[monthIdx] += amountM;
+          totalNewOrdersAmount += item.amountExpected;
+          
+          newOrdersList.push({
+            clientName: item.clientName,
+            summary: item.summary,
+            oldStatus: item.oldStatus,
+            newStatus: item.newStatus,
+            billingMonth: ym,
+            salesRep: item.salesRep || '未設定',
+            amount: amountM
+          });
+        }
+      });
+      
+      // 新規受注詳細テーブルのレンダリング
+      const newOrdersTableBody = document.getElementById('new-orders-table-body');
+      newOrdersTableBody.innerHTML = '';
+      
+      newOrdersList.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors duration-150';
+        
+        const clientAndSummary = item.clientName && item.summary 
+          ? `${item.clientName} - ${item.summary}` 
+          : (item.clientName || item.summary || '未設定');
+          
+        tr.innerHTML = `
+          <td class="px-4 py-2.5 font-semibold text-slate-900 max-w-[280px] truncate" title="${clientAndSummary}">${clientAndSummary}</td>
+          <td class="px-4 py-2.5 text-slate-500">${item.oldStatus}</td>
+          <td class="px-4 py-2.5"><span class="px-2 py-0.5 bg-green-50 text-green-700 border border-green-100 rounded text-[10px] font-bold">${item.newStatus}</span></td>
+          <td class="px-4 py-2.5 font-bold text-slate-600">${item.billingMonth}</td>
+          <td class="px-4 py-2.5 text-slate-600">${item.salesRep}</td>
+          <td class="px-4 py-2.5 text-right font-bold text-green-600">${item.amount.toFixed(2)}M円</td>
+        `;
+        newOrdersTableBody.appendChild(tr);
+      });
+      
+      if (newOrdersList.length === 0) {
+        newOrdersTableBody.innerHTML = `
+          <tr>
+            <td colspan="6" class="px-4 py-8 text-center text-slate-400 font-medium">該当する新規受注データはありません</td>
+          </tr>
+        `;
+      }
+      
+      const totalNewOrdersAmountM = totalNewOrdersAmount / 1000000;
+      document.getElementById('new-orders-total-label').innerText = `合計新規受注額: ${totalNewOrdersAmountM.toFixed(2)}M円`;
+
+      // 7.5 パイプライン状態遷移スコアボード（現残高＆過去フロー統合版）のレンダリング
+      const scorecardBoard = document.getElementById('pipeline-scorecard-board');
+      if (scorecardBoard) {
+        scorecardBoard.innerHTML = '';
+        
+        sortedStatuses.forEach((st, index) => {
+          const data = scorecardData[st] || { inflowCount: 0, inflowAmount: 0, inflowCountPrev: 0, inflowAmountPrev: 0, sources: {} };
+          const amountM = data.inflowAmount / 1000000;
+          
+          // 最大遷移元の算出
+          let maxSrc = 'なし';
+          let maxSrcCount = 0;
+          for (const src in data.sources) {
+            if (data.sources[src] > maxSrcCount) {
+              maxSrcCount = data.sources[src];
+              maxSrc = src;
+            }
+          }
+          
+          // ステータス名から番号とテキストを分離
+          let phaseNum = '';
+          let phaseText = st;
+          const match = st.match(/^([0-9a-zA-Z]+)\.?\s*(.*)$/);
+          if (match) {
+            phaseNum = match[1];
+            phaseText = match[2];
+          }
+
+          // ステータスに応じたトーン（グラデーションカラー）を設定して高級感を演出
+          let colorTheme = 'from-blue-500/10 to-indigo-500/10 border-blue-200/50 text-blue-700';
+          let badgeColor = 'bg-blue-50 text-blue-700 border-blue-100';
+          if (st.startsWith('6') || st.startsWith('7') || st.startsWith('8')) {
+            colorTheme = 'from-emerald-500/10 to-teal-500/10 border-emerald-200/50 text-emerald-700';
+            badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-100';
+          } else if (st.includes('失注') || st.includes('9')) {
+            colorTheme = 'from-rose-500/10 to-orange-500/10 border-rose-200/50 text-rose-700';
+            badgeColor = 'bg-rose-50 text-rose-700 border-rose-100';
+          } else if (st.startsWith('4') || st.startsWith('5')) {
+            colorTheme = 'from-amber-500/10 to-orange-500/10 border-amber-200/50 text-amber-700';
+            badgeColor = 'bg-amber-50 text-amber-700 border-amber-100';
+          }
+          
+          // 現在庫の取得 (filteredDataから集計した現在値)
+          const curData = currentPipeline[st] || { count: 0, amountExpected: 0, amountExpectedWon: 0 };
+          const curAmountM = curData.amountExpectedWon; // 確度調整済ヨミ金額
+
+          // 1. 現残高の先週比（ストックの増減）
+          const prevOneWeekData = pipelineOneWeekAgo[st] || { count: 0, amountExpectedWon: 0 };
+          const stockCountDiff = curData.count - prevOneWeekData.count;
+          const stockAmountDiffM = curData.amountExpectedWon - prevOneWeekData.amountExpectedWon;
+          
+          let stockDiffHtml = '<span class="text-slate-400 font-bold text-[8px]">-</span>';
+          if (stockCountDiff > 0 || stockAmountDiffM > 0) {
+            stockDiffHtml = `
+              <span class="text-emerald-600 font-black text-[9px] flex items-center justify-end gap-0.5" title="1週間前の売上からの増減">
+                <i class="fa-solid fa-caret-up text-[9px]"></i>
+                売上: +${stockCountDiff} (+${stockAmountDiffM.toFixed(2)}M)
+              </span>
+            `;
+          } else if (stockCountDiff < 0 || stockAmountDiffM < 0) {
+            stockDiffHtml = `
+              <span class="text-red-500 font-black text-[9px] flex items-center justify-end gap-0.5" title="1週間前の売上からの増減">
+                <i class="fa-solid fa-caret-down text-[9px]"></i>
+                売上: ${stockCountDiff} (${stockAmountDiffM.toFixed(2)}M)
+              </span>
+            `;
+          }
+
+          // 2. 流イン実績の先週比（直近1週間の新規流入フロー）
+          const flowCountDiff = data.inflowCount - data.inflowCountPrev;
+          const flowAmountDiffM = (data.inflowAmount - data.inflowAmountPrev) / 1000000;
+          
+          let flowDiffHtml = '<span class="text-slate-400 font-bold text-[8px]">新規流入なし</span>';
+          if (flowCountDiff > 0 || flowAmountDiffM > 0) {
+            flowDiffHtml = `
+              <span class="text-emerald-600 font-black text-[8px] flex items-center gap-0.5 animate-pulse" title="直近1週間の新規流入額">
+                <i class="fa-solid fa-plus text-[7px]"></i>
+                今週: +${flowCountDiff}件 (+${flowAmountDiffM.toFixed(2)}M)
+              </span>
+            `;
+          } else if (flowCountDiff < 0 || flowAmountDiffM < 0) {
+            flowDiffHtml = `
+              <span class="text-red-500 font-black text-[8px] flex items-center gap-0.5" title="直近1週間の新規流入額（減少）">
+                <i class="fa-solid fa-minus text-[7px]"></i>
+                今週: ${flowCountDiff}件 (${flowAmountDiffM.toFixed(2)}M)
+              </span>
+            `;
+          }
+
+          // コネクタ（歩留まり率・直接遷移数）の挿入 (縦型)
+          if (index > 0) {
+            const prevSt = sortedStatuses[index - 1];
+            const prevData = currentPipeline[prevSt] || { count: 0, amountExpectedWon: 0 };
+            
+            // ヨミ金額ベースの歩留まり率
+            const yieldRate = prevData.amountExpectedWon > 0 
+              ? ((curAmountM / prevData.amountExpectedWon) * 100).toFixed(0) 
+              : 0;
+            
+            // 履歴上の直接の遷移件数（前フェーズから現フェーズへ）
+            const directTransitionCount = data.sources[prevSt] || 0;
+            
+            const connector = document.createElement('div');
+            connector.className = 'flex flex-col items-center justify-center py-0.5 text-slate-400 flex-shrink-0 w-full';
+            connector.innerHTML = `
+              <div class="flex items-center gap-2 bg-slate-50/60 backdrop-blur-sm px-3 py-0.5 rounded-full border border-slate-200/30 shadow-sm text-[8px] font-bold">
+                <span class="text-indigo-600 font-black">歩留り: ${yieldRate > 0 ? yieldRate + '%' : '-'}</span>
+                <i class="fa-solid fa-down-long text-[9px] text-indigo-400"></i>
+                <span class="text-slate-400 font-extrabold">直接移行: ${directTransitionCount}件</span>
+              </div>
+            `;
+            scorecardBoard.appendChild(connector);
+          }
+
+          const isActive = selectedStatusFilter === st;
+          const card = document.createElement('div');
+          card.className = `relative flex items-center justify-between p-2.5 px-3.5 rounded-xl border bg-gradient-to-br ${colorTheme} shadow-sm backdrop-blur-md transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 cursor-pointer hover:border-blue-400 w-full ${isActive ? 'active-card' : ''}`;
+          
+          card.onclick = () => {
+            selectedStatusFilter = selectedStatusFilter === st ? null : st;
+            processAndRender();
+          };
+
+          card.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-3 text-[10px]">
+              
+              <!-- 左ブロック: フェーズ情報 -->
+              <div class="flex items-center gap-2.5 min-w-[140px] max-w-[180px] flex-shrink-0">
+                <span class="text-[9px] font-black tracking-wider uppercase px-1.5 py-0.5 rounded border ${badgeColor} flex-shrink-0">
+                  PHASE ${phaseNum || 'N/A'}
+                </span>
+                <h5 class="font-black text-slate-800 text-xs truncate" title="${st}">
+                  ${phaseText}
+                </h5>
+              </div>
+
+              <!-- 中央左ブロック: 売上 -->
+              <div class="flex items-center gap-2.5 bg-white/40 px-2.5 py-1 rounded-lg border border-white/50 flex-1 min-w-[180px]">
+                <div class="text-[8px] font-black text-slate-400 uppercase tracking-wider flex-shrink-0">
+                  受注率: <span class="text-[8px] text-slate-500 font-bold">${probs[st]}%</span>
+                </div>
+                <div class="flex-1 flex justify-between items-center gap-2">
+                  <span class="font-black text-slate-800 whitespace-nowrap">
+                    ${curData.count}<span class="text-[8px] text-slate-400 font-normal">件</span> / 
+                    <span class="text-blue-600">${curAmountM.toFixed(2)}</span><span class="text-[8px] text-slate-400 font-normal">M</span>
+                  </span>
+                  <div class="text-right">
+                    ${stockDiffHtml}
+                  </div>
+                </div>
+              </div>
+
+              <!-- 中央右ブロック: 流入実績 -->
+              <div class="flex items-center gap-2.5 flex-1 min-w-[180px]">
+                <div class="text-[8px] font-black text-slate-400 uppercase tracking-wider flex-shrink-0">
+                  流入
+                </div>
+                <div class="flex-1 flex justify-between items-center gap-2">
+                  <span class="font-bold text-slate-700 whitespace-nowrap">
+                    ${data.inflowCount}<span class="text-[8px] text-slate-400 font-normal">件</span> / 
+                    <span class="font-black">${amountM.toFixed(2)}</span><span class="text-[8px] text-slate-400 font-normal">M</span>
+                  </span>
+                  <div class="text-right">
+                    ${flowDiffHtml}
+                  </div>
+                </div>
+              </div>
+
+              <!-- 右ブロック: 遷移元 -->
+              <div class="text-right text-[8px] min-w-[80px] max-w-[100px] flex-shrink-0 truncate border-l border-slate-200/50 pl-2.5">
+                <span class="text-slate-400 font-bold block">主な遷移元</span>
+                <span class="font-extrabold text-slate-600" title="${maxSrc} (${maxSrcCount}件)">
+                  ${maxSrc !== 'なし' ? `← ${maxSrc}` : 'なし'}
+                </span>
+              </div>
+              
+            </div>
+          `;
+          
+          scorecardBoard.appendChild(card);
+        });
+      }
+
+      // 7.6 直近1週間のパイプライン変化アクティビティログのレンダリング
+      const activityBody = document.getElementById('activity-log-body');
+      if (activityBody) {
+        activityBody.innerHTML = '';
+        
+        // タイムスタンプ降順でソート
+        recentActivities.sort((a, b) => b.dateObj - a.dateObj);
+        
+        // 選択されたフェーズでフィルタリング
+        let displayActivities = recentActivities;
+        if (selectedStatusFilter) {
+          displayActivities = recentActivities.filter(act => 
+            act.newStatus === selectedStatusFilter || act.oldStatus === selectedStatusFilter
+          );
+        }
+
+        // ヘッダーの更新（フィルタバッジの追加）
+        const activityTitle = document.getElementById('activity-log-title');
+        if (activityTitle) {
+          let filterBadgeHtml = '';
+          if (selectedStatusFilter) {
+            filterBadgeHtml = `
+              <span class="ml-2 inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-800 border border-blue-200 rounded text-[9px] font-black animate-pulse">
+                <span>${selectedStatusFilter} でフィルタ中</span>
+                <button type="button" onclick="event.stopPropagation(); selectedStatusFilter = null; processAndRender();" class="text-blue-500 hover:text-blue-800 font-bold ml-1" title="フィルタをクリア">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+              </span>
+            `;
+          }
+          activityTitle.innerHTML = `直近1週間の変更アクティビティ${filterBadgeHtml}`;
+        }
+        
+        displayActivities.forEach(act => {
+          const tr = document.createElement('tr');
+          tr.className = 'hover:bg-slate-50 transition-colors duration-150 border-b border-slate-100';
+          
+          const formattedDate = formatDateShort(act.dateObj);
+          const clientAndSummary = act.clientName && act.summary 
+            ? `${act.clientName} - ${act.summary}` 
+            : (act.clientName || act.summary || '未設定');
+            
+          const amountM = act.amountExpected / 1000000;
+          
+          // ステータスの上昇・下降判定
+          const oldNum = getStatusNumber(act.oldStatus);
+          const newNum = getStatusNumber(act.newStatus);
+          const isWon = act.newStatus.startsWith('6') || act.newStatus.startsWith('7') || act.newStatus.startsWith('8');
+          const isLost = act.newStatus.includes('失注') || act.newStatus.startsWith('9');
+          
+          let trendIcon = '';
+          let badgeTheme = 'bg-slate-50 text-slate-600 border-slate-200';
+          
+          if (isLost) {
+            trendIcon = '<i class="fa-solid fa-circle-xmark text-red-500 mr-1"></i>';
+            badgeTheme = 'bg-red-50 text-red-700 border-red-200';
+          } else if (isWon) {
+            trendIcon = '<i class="fa-solid fa-crown text-emerald-500 mr-1 animate-pulse"></i>';
+            badgeTheme = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+          } else if (newNum > oldNum && oldNum > 0) {
+            trendIcon = '<i class="fa-solid fa-arrow-trend-up text-emerald-500 mr-1"></i>';
+            badgeTheme = 'bg-blue-50 text-blue-700 border-blue-200';
+          } else if (newNum < oldNum && oldNum > 0) {
+            trendIcon = '<i class="fa-solid fa-arrow-trend-down text-red-400 mr-1"></i>';
+            badgeTheme = 'bg-amber-50 text-amber-700 border-amber-200';
+          }
+          
+          const transitionHtml = `
+            <div class="flex items-center gap-1.5">
+              <span class="text-slate-400 font-semibold px-1.5 py-0.5 rounded border border-slate-100 bg-slate-50/50">${act.oldStatus}</span>
+              <i class="fa-solid fa-arrow-right text-[8px] text-slate-300"></i>
+              <span class="px-2 py-0.5 rounded text-[10px] font-black border flex items-center ${badgeTheme}">
+                ${trendIcon} ${act.newStatus}
+              </span>
+            </div>
+          `;
+          
+          tr.innerHTML = `
+            <td class="px-4 py-3 text-slate-500 font-bold whitespace-nowrap">${formattedDate}</td>
+            <td class="px-4 py-3 max-w-[280px] truncate" title="${clientAndSummary}">
+              <div class="font-extrabold text-slate-900">${act.clientName || '未設定'}</div>
+              <div class="text-[9px] text-slate-400 font-bold truncate">${act.summary || '未設定'}</div>
+            </td>
+            <td class="px-4 py-3">${transitionHtml}</td>
+            <td class="px-4 py-3 text-right font-black text-slate-800">${amountM.toFixed(2)}M円</td>
+            <td class="px-4 py-3 text-slate-500 whitespace-nowrap">
+              <span class="inline-flex items-center justify-center h-5 px-2 bg-slate-100 text-slate-600 rounded-full text-[9px] font-black border border-slate-200/50">
+                <i class="fa-solid fa-user mr-1 text-[8px] text-slate-400"></i> ${act.salesRep}
+              </span>
+            </td>
+          `;
+          activityBody.appendChild(tr);
+        });
+        
+        if (displayActivities.length === 0) {
+          activityBody.innerHTML = `
+            <tr>
+              <td colspan="5" class="px-4 py-6 text-center text-slate-400 font-medium">該当するステータス変化データはありません</td>
+            </tr>
+          `;
+        }
+      }
+
+      // 7. グラフの再描画 (既存のグラフと新規の予実・累積グラフ、ファネル積み上げ、新規履歴グラフ含む)
+      renderCharts(budgetTarget, step3Total, monthlySales, monthlyOutsourcing, monthlyBudgetPlan, phaseMonthlySales, sortedStatuses, step1Total, step2Total, newOrdersMonthlySales, transitionCounts, sortedStatuses);
+      
+      // 8. 取引先分類別 月別売上集計表（クロス集計）の描画
+      const crossHeadersRow = document.getElementById('cross-table-headers');
+      if (crossHeadersRow) {
+        let headersHtml = '<th class="px-4 py-3">取引先分類</th>';
+        months.forEach(ym => {
+          const parts = ym.split('-');
+          const mStr = parseInt(parts[1], 10) + '月';
+          headersHtml += `<th class="px-3 py-3 text-right">${mStr}</th>`;
+        });
+        headersHtml += '<th class="px-4 py-3 text-right bg-slate-100/50">総計</th>';
+        crossHeadersRow.innerHTML = headersHtml;
+      }
+      
+      const crossTableBody = document.getElementById('cross-table-body');
+      if (crossTableBody) {
+        crossTableBody.innerHTML = '';
+        
+        if (crossCategories.length === 0) {
+          crossTableBody.innerHTML = `<tr><td colspan="${months.length + 2}" class="px-4 py-8 text-center text-slate-400 font-medium">該当する売上データはありません</td></tr>`;
+        } else {
+          crossCategories.forEach(cat => {
+            let rowHtml = `<tr class="hover:bg-slate-50 transition-colors duration-150">`;
+            rowHtml += `<td class="px-4 py-2.5 font-bold text-slate-800">${cat}</td>`;
+            months.forEach(ym => {
+              const val = crossTableData[cat][ym];
+              rowHtml += `<td class="px-3 py-2.5 text-right font-semibold text-slate-600">${val > 0 ? val.toFixed(2) + 'M' : '-'}</td>`;
+            });
+            rowHtml += `<td class="px-4 py-2.5 text-right font-black text-slate-900 bg-slate-50/50">${crossTableData[cat]['total'].toFixed(2)}M</td>`;
+            rowHtml += `</tr>`;
+            crossTableBody.innerHTML += rowHtml;
+          });
+          
+          // 縦の総計行を追加
+          let totalRowHtml = `<tr class="bg-slate-50 font-black text-slate-900 border-t border-slate-200">`;
+          totalRowHtml += `<td class="px-4 py-3">総計</td>`;
+          months.forEach(ym => {
+            const colVal = crossColTotals[ym];
+            totalRowHtml += `<td class="px-3 py-3 text-right text-slate-800">${colVal > 0 ? colVal.toFixed(2) + 'M' : '-'}</td>`;
+          });
+          totalRowHtml += `<td class="px-4 py-3 text-right text-blue-600 bg-blue-50/30">${crossGrandTotal.toFixed(2)}M</td>`;
+          totalRowHtml += `</tr>`;
+          crossTableBody.innerHTML += totalRowHtml;
+        }
+      }
+
+      // 8.5. 取引先分類別 月別外注費用集計表（クロス集計）の描画
+      const outCrossHeadersRow = document.getElementById('out-cross-table-headers');
+      if (outCrossHeadersRow) {
+        let headersHtml = '<th class="px-4 py-3">取引先分類</th>';
+        months.forEach(ym => {
+          const parts = ym.split('-');
+          const mStr = parseInt(parts[1], 10) + '月';
+          const isSelected = selectedOutsourcingMonth === ym;
+          const cellClass = isSelected 
+            ? 'px-3 py-3 text-right bg-red-100 text-red-800 border-b-2 border-red-500 cursor-pointer transition-colors duration-150' 
+            : 'px-3 py-3 text-right cursor-pointer hover:bg-red-50 hover:text-red-700 transition-colors duration-150';
+          headersHtml += `<th class="${cellClass}" onclick="toggleOutsourcingMonthFilter('${ym}')" title="${ym}でフィルタ">${mStr}</th>`;
+        });
+        headersHtml += '<th class="px-4 py-3 text-right bg-slate-100/50">総計</th>';
+        outCrossHeadersRow.innerHTML = headersHtml;
+      }
+      
+      const outCrossTableBody = document.getElementById('out-cross-table-body');
+      if (outCrossTableBody) {
+        outCrossTableBody.innerHTML = '';
+        
+        if (outCrossCategories.length === 0) {
+          outCrossTableBody.innerHTML = `<tr><td colspan="${months.length + 2}" class="px-4 py-8 text-center text-slate-400 font-medium">該当する外注費用データはありません</td></tr>`;
+        } else {
+          outCrossCategories.forEach(cat => {
+            let rowHtml = `<tr class="hover:bg-slate-50 transition-colors duration-150">`;
+            rowHtml += `<td class="px-4 py-2.5 font-bold text-slate-800">${cat}</td>`;
+            months.forEach(ym => {
+              const val = outCrossTableData[cat][ym];
+              const isSelected = selectedOutsourcingMonth === ym;
+              const cellClass = isSelected ? 'bg-red-50/70 font-black text-red-700' : '';
+              rowHtml += `<td class="px-3 py-2.5 text-right font-semibold text-slate-600 ${cellClass}">${val > 0 ? val.toFixed(2) + 'M' : '-'}</td>`;
+            });
+            rowHtml += `<td class="px-4 py-2.5 text-right font-black text-slate-900 bg-slate-50/50">${outCrossTableData[cat]['total'].toFixed(2)}M</td>`;
+            rowHtml += `</tr>`;
+            outCrossTableBody.innerHTML += rowHtml;
+          });
+          
+          // 縦の総計行を追加
+          let totalRowHtml = `<tr class="bg-slate-50 font-black text-slate-900 border-t border-slate-200">`;
+          totalRowHtml += `<td class="px-4 py-3">総計</td>`;
+          months.forEach(ym => {
+            const colVal = outCrossColTotals[ym];
+            const isSelected = selectedOutsourcingMonth === ym;
+            const cellClass = isSelected ? 'bg-red-100/50 text-red-800' : 'text-slate-800';
+            totalRowHtml += `<td class="px-3 py-3 text-right cursor-pointer hover:bg-red-50 hover:text-red-700 ${cellClass}" onclick="toggleOutsourcingMonthFilter('${ym}')" title="${ym}でフィルタ">${colVal > 0 ? colVal.toFixed(2) + 'M' : '-'}</td>`;
+          });
+          totalRowHtml += `<td class="px-4 py-3 text-right text-red-600 bg-red-50/30">${outCrossGrandTotal.toFixed(2)}M</td>`;
+          totalRowHtml += `</tr>`;
+          outCrossTableBody.innerHTML += totalRowHtml;
+        }
+      }
+    }
+
+    /**
+     * 全フェーズを網羅した動的ファネルを数値昇順で描画
+     */
+    /**
+     * 日付の簡易フォーマット用ヘルパー（本日・昨日・N日前・M/D）
+     */
+    function formatDateShort(d) {
+      const diffMs = Date.now() - d.getTime();
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) return '今日';
+      if (diffDays === 1) return '昨日';
+      if (diffDays < 7 && diffDays > 0) return `${diffDays}日前`;
+      
+      const m = d.getMonth() + 1;
+      const date = d.getDate();
+      return `${m}/${date}`;
+    }
+
+    function buildDynamicFunnel(funnelValues) {
+      const container = document.getElementById('funnel-container');
+      if (!container) return;
+      container.innerHTML = '';
+      
+      const statuses = Object.keys(funnelValues);
+      if (statuses.length === 0) {
+        container.innerHTML = '<div class="text-center text-slate-400 py-6 text-xs font-bold">集計データがありません</div>';
+        return;
+      }
+      
+      // カスタムソート: 通常フェーズは数値昇順、失注（「失注」を含む）は強制的に最下部にソート
+      const sortedStatusesAsc = [...statuses].sort((a, b) => {
+        const isLossA = a.includes('失注');
+        const isLossB = b.includes('失注');
+        if (isLossA && !isLossB) return 1;
+        if (!isLossA && isLossB) return -1;
+        return getStatusNumber(a) - getStatusNumber(b);
+      });
+      
+      // ファネル総額（割合の母数）を計算
+      const totalFunnelSum = Object.values(funnelValues).reduce((acc, cur) => acc + cur, 0);
+      
+      const N = sortedStatusesAsc.length;
+      
+      // 各ステータスの最大金額を特定（横幅の基準とする）
+      const maxVal = Math.max(...Object.values(funnelValues), 0);
+      
+      sortedStatusesAsc.forEach((status, index) => {
+        const valM = funnelValues[status];
+        const pct = totalFunnelSum > 0 ? ((valM / totalFunnelSum) * 100).toFixed(1) : '0.0';
+        
+        // 金額比率に応じた動的横幅決定（最大金額のフェーズを100%とし、最小幅を35%とする）
+        const minWidth = 35;
+        const widthPercent = maxVal > 0 ? minWidth + (100 - minWidth) * (valM / maxVal) : minWidth;
+        
+        // フェーズ数値に基づいたグラデーション配色定義 (失注はダークグレー)
+        let bgGradient = 'from-slate-500 to-slate-600 hover:from-slate-600 hover:to-slate-700';
+        const phaseNum = getStatusNumber(status);
+        if (status.includes('失注')) {
+          bgGradient = 'from-slate-700 to-slate-800 hover:from-slate-800 hover:to-slate-900';
+        } else if (phaseNum >= 6) {
+          bgGradient = 'from-green-500 to-green-600 hover:from-green-600 hover:to-green-700';
+        } else if (phaseNum >= 4) {
+          bgGradient = 'from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700';
+        } else if (phaseNum >= 1) {
+          bgGradient = 'from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700';
+        }
+        
+        // 各段の要素生成 (金額に基づく幅を適用)
+        const funnelRow = document.createElement('div');
+        funnelRow.className = 'mx-auto group transition-all-300 hover:scale-[1.02]';
+        funnelRow.style.width = `${widthPercent}%`;
+        
+        funnelRow.innerHTML = `
+          <div class="bg-gradient-to-r ${bgGradient} text-white rounded-lg p-1.5 flex justify-between items-center shadow-sm cursor-default">
+            <div class="flex items-center space-x-1.5 min-w-0">
+              <span class="text-[9px] font-black bg-white/20 px-1 py-0.5 rounded">${status.includes('失注') ? '✖' : phaseNum}</span>
+              <span class="text-[10px] font-extrabold tracking-tight truncate" title="${status}">${status}</span>
+            </div>
+            <div class="text-right flex-shrink-0 pl-2">
+              <span class="text-xs font-black">${valM.toFixed(2)}M</span>
+              <span class="text-[8px] opacity-80 font-bold block">シェア: ${pct}%</span>
+            </div>
+          </div>
+        `;
+        
+        container.appendChild(funnelRow);
+        
+        // 最後の段以外には非常にコンパクトな矢印を配置
+        if (index < N - 1) {
+          const arrow = document.createElement('div');
+          arrow.className = 'text-center text-[7px] text-slate-300 py-0.5 leading-none';
+          arrow.innerHTML = '<i class="fa-solid fa-chevron-down opacity-50"></i>';
+          container.appendChild(arrow);
+        }
+      });
+    }
+
+    /**
+     * 各種グラフ（Chart.js）の描画
+     */
+    function renderCharts(budget, landing, monthlySales, monthlyOutsourcing, monthlyBudgetPlan, phaseMonthlySales, sortedStatuses, step1Total, step2Total, newOrdersMonthlySales) {
+      const achievementRate = budget > 0 ? ((landing / budget) * 100).toFixed(1) : 0;
+      document.getElementById('gauge-label').innerText = `予算達成率: ${achievementRate}%`;
+      
+      const isTargetAchieved = parseFloat(achievementRate) >= 100;
+      const landingColor = isTargetAchieved ? '#0F9D58' : '#1a73e8'; // 達成時はGoogleグリーン、未達成時はGoogleブルー
+      
+      // 中央ラベルのテキストと色を更新
+      const centerLabel = document.getElementById('gauge-center-label');
+      if (centerLabel) {
+        centerLabel.innerText = `${achievementRate}%`;
+        centerLabel.style.color = landingColor;
+      }
+      
+      // 1. 予算対着地ゲージグラフ (半円ドーナツ) - 受注済(STEP1)と未受注ヨミ(STEP2)の細分化表示
+      const ctxGauge = document.getElementById('gaugeChart').getContext('2d');
+      if (gaugeChartInstance) gaugeChartInstance.destroy();
+      
+      const step1Rate = budget > 0 ? (step1Total / budget) * 100 : 0;
+      const step2Rate = budget > 0 ? (step2Total / budget) * 100 : 0;
+      
+      // 合計が100%を超える場合のクランプ処理
+      let displayStep1 = step1Rate;
+      let displayStep2 = step2Rate;
+      let remaining = 100 - (displayStep1 + displayStep2);
+      
+      if (remaining < 0) {
+        remaining = 0;
+        if (displayStep1 > 100) {
+          displayStep1 = 100;
+          displayStep2 = 0;
+        } else if (displayStep1 + displayStep2 > 100) {
+          displayStep2 = 100 - displayStep1;
+        }
+      }
+      
+      gaugeChartInstance = new Chart(ctxGauge, {
+        type: 'doughnut',
+        data: {
+          labels: ['受注済 (確実)', '未受注 (ヨミ)', '残目標'],
+          datasets: [
+            { 
+              data: [displayStep1, displayStep2, remaining], 
+              backgroundColor: ['#0F9D58', '#F4B400', '#e2e8f0'], 
+              borderWidth: 0,
+              hoverOffset: 0
+            }
+          ]
+        },
+        options: {
+          rotation: -90,
+          circumference: 180,
+          cutout: '78%',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { 
+              callbacks: { 
+                label: context => ` ${context.label}: ${context.raw.toFixed(1)}%` 
+              } 
+            }
+          }
+        }
+      });
+      
+      // 2. 月別グループ棒グラフ (売上 vs 外注)
+      const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');
+      if (monthlyChartInstance) monthlyChartInstance.destroy();
+      monthlyChartInstance = new Chart(ctxMonthly, {
+        type: 'bar',
+        data: {
+          labels: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'],
+          datasets: [
+            { label: '売上金額', data: monthlySales, backgroundColor: '#1a73e8', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.8 },
+            { label: '外注費用額', data: monthlyOutsourcing, backgroundColor: '#ea4335', borderRadius: 4, barPercentage: 0.8, categoryPercentage: 0.8 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 8, font: { size: 10, weight: 'bold' } } },
+            tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${context.raw.toFixed(2)} M円` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+            y: { beginAtZero: true, title: { display: true, text: '金額 (百万円)', font: { size: 9, weight: 'bold' } }, ticks: { font: { size: 9 } } }
+          }
+        }
+      });
+ 
+      // 3. 【新設】月別売上予実対比グラフ (棒 & 折れ線の複合)
+      const ctxMonthlyActualVsBudget = document.getElementById('monthlyActualVsBudgetChart').getContext('2d');
+      if (monthlyActualVsBudgetChartInstance) monthlyActualVsBudgetChartInstance.destroy();
+      monthlyActualVsBudgetChartInstance = new Chart(ctxMonthlyActualVsBudget, {
+        type: 'bar',
+        data: {
+          labels: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'],
+          datasets: [
+            {
+              type: 'bar',
+              label: '売上着地見込み',
+              data: monthlySales,
+              backgroundColor: 'rgba(26, 115, 232, 0.85)',
+              borderColor: '#1a73e8',
+              borderWidth: 1,
+              borderRadius: 4,
+              order: 2
+            },
+            {
+              type: 'line',
+              label: '月別予算',
+              data: monthlyBudgetPlan,
+              borderColor: '#34a853',
+              borderWidth: 2.5,
+              pointBackgroundColor: '#34a853',
+              pointRadius: 4,
+              fill: false,
+              tension: 0.15,
+              order: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 8, font: { size: 10, weight: 'bold' } } },
+            tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${context.raw.toFixed(2)} M円` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+            y: { beginAtZero: true, title: { display: true, text: '金額 (百万円)', font: { size: 9, weight: 'bold' } } }
+          }
+        }
+      });
+ 
+      // 4. 【新設】年度累積売上予実対比グラフ (W折れ線)
+      // 累積データの算出
+      const cumulativeSales = [];
+      const cumulativeBudgets = [];
+      let tempSalesSum = 0;
+      let tempBudgetSum = 0;
+      for (let i = 0; i < 12; i++) {
+        tempSalesSum += monthlySales[i];
+        tempBudgetSum += monthlyBudgetPlan[i];
+        cumulativeSales.push(tempSalesSum);
+        cumulativeBudgets.push(tempBudgetSum);
+      }
+ 
+      const ctxCumulativeActualVsBudget = document.getElementById('cumulativeActualVsBudgetChart').getContext('2d');
+      if (cumulativeActualVsBudgetChartInstance) cumulativeActualVsBudgetChartInstance.destroy();
+      cumulativeActualVsBudgetChartInstance = new Chart(ctxCumulativeActualVsBudget, {
+        type: 'line',
+        data: {
+          labels: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'],
+          datasets: [
+            {
+              label: '累積売上着地',
+              data: cumulativeSales,
+              borderColor: '#1a73e8',
+              backgroundColor: 'rgba(26, 115, 232, 0.05)',
+              borderWidth: 3,
+              pointBackgroundColor: '#1a73e8',
+              pointRadius: 4,
+              fill: true,
+              tension: 0.1
+            },
+            {
+              label: '累積予算',
+              data: cumulativeBudgets,
+              borderColor: '#34a853',
+              borderDash: [5, 5],
+              borderWidth: 2.5,
+              pointBackgroundColor: '#34a853',
+              pointRadius: 3,
+              fill: false,
+              tension: 0.1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 8, font: { size: 10, weight: 'bold' } } },
+            tooltip: { callbacks: { label: context => ` ${context.dataset.label}: ${context.raw.toFixed(2)} M円` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+            y: { beginAtZero: true, title: { display: true, text: '金額 (百万円)', font: { size: 9, weight: 'bold' } } }
+          }
+        }
+      });
+      
+      // 5. 営業パイプライン・多次元ファネル積み上げグラフ
+      const colorPalette = [
+        'rgba(26, 115, 232, 0.8)',   // ブルー
+        'rgba(52, 168, 83, 0.8)',    // グリーン
+        'rgba(251, 188, 5, 0.8)',    // イエロー
+        'rgba(234, 67, 53, 0.8)',    // レッド
+        'rgba(167, 139, 250, 0.8)',  // パープル
+        'rgba(251, 146, 60, 0.8)',   // オレンジ
+        'rgba(45, 212, 191, 0.8)',   // ティール
+        'rgba(244, 63, 94, 0.8)',    // ローズ
+        'rgba(148, 163, 184, 0.8)'   // ダークグレー (失注等用)
+      ];
+      
+      const stackedDatasets = sortedStatuses.map((status, index) => {
+        const color = colorPalette[index % colorPalette.length];
+        return {
+          label: status,
+          data: phaseMonthlySales[status] || Array(12).fill(0),
+          backgroundColor: color,
+          borderColor: color.replace('0.8', '1.0'),
+          borderWidth: 1,
+          stack: 'funnelStack'
+        };
+      });
+      
+      const ctxFunnelCumulative = document.getElementById('funnelCumulativeChart').getContext('2d');
+      if (funnelCumulativeChartInstance) funnelCumulativeChartInstance.destroy();
+      funnelCumulativeChartInstance = new Chart(ctxFunnelCumulative, {
+        type: 'bar',
+        data: {
+          labels: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'],
+          datasets: stackedDatasets
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { 
+              position: 'right', 
+              labels: { 
+                boxWidth: 6, 
+                padding: 6,
+                font: { size: 8, weight: 'bold' } 
+              } 
+            },
+            tooltip: { 
+              callbacks: { 
+                label: context => ` ${context.dataset.label}: ${context.raw.toFixed(2)} M円` 
+              } 
+            }
+          },
+          scales: {
+            x: { 
+              stacked: true, 
+              grid: { display: false }, 
+              ticks: { font: { size: 9, weight: 'bold' } } 
+            },
+            y: { 
+              stacked: true, 
+              beginAtZero: true, 
+              title: { 
+                display: true, 
+                text: '金額 (百万円)', 
+                font: { size: 8, weight: 'bold' } 
+              },
+              ticks: { font: { size: 8 } }
+            }
+          }
+        }
+      });
+
+      // 7. 新規受注（コンバージョン）推移（単一棒グラフ）の描画
+      const ctxNewOrders = document.getElementById('newOrdersChart').getContext('2d');
+      if (newOrdersChartInstance) newOrdersChartInstance.destroy();
+      newOrdersChartInstance = new Chart(ctxNewOrders, {
+        type: 'bar',
+        data: {
+          labels: ['4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月', '1月', '2月', '3月'],
+          datasets: [
+            {
+              label: '新規受注額',
+              data: newOrdersMonthlySales,
+              backgroundColor: '#34a853', // Googleグリーン
+              borderRadius: 4,
+              barPercentage: 0.6,
+              categoryPercentage: 0.6
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'top', align: 'end', labels: { boxWidth: 8, font: { size: 10, weight: 'bold' } } },
+            tooltip: { callbacks: { label: context => ` 新規受注額: ${context.raw.toFixed(2)} M円` } }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 10, weight: 'bold' } } },
+            y: { beginAtZero: true, title: { display: true, text: '金額 (百万円)', font: { size: 9, weight: 'bold' } }, ticks: { font: { size: 9 } } }
+          }
+        }
+      });
+    }
+
+    /**
+     * デフォルト受注率設定用のテーブルを動的に構築
+     */
+    function buildRateTable() {
+      const tbody = document.getElementById('rate-table-body');
+      tbody.innerHTML = '';
+      
+      const statuses = [...new Set(rawDataGlobal.filter(item => item.costCategory === '売上').map(item => item.status))].filter(Boolean);
+      const sortedStatuses = [...statuses].sort((a, b) => getStatusNumber(b) - getStatusNumber(a));
+      
+      sortedStatuses.forEach((status, index) => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 transition-colors';
+        
+        let currentRate = 0;
+        if (simulationRatesGlobal[status] !== undefined) {
+          currentRate = simulationRatesGlobal[status];
+        } else {
+          if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+            currentRate = defaultSimulationRates.groupHigh;
+          } else if (status.startsWith('4') || status.startsWith('5')) {
+            currentRate = defaultSimulationRates.groupMid;
+          } else if (status.startsWith('1') || status.startsWith('2') || status.startsWith('3')) {
+            currentRate = defaultSimulationRates.groupLow;
+          }
+        }
+        
+        tr.innerHTML = `
+          <td class="px-4 py-3.5 font-bold text-slate-800">${escapeHtml(status)}</td>
+          <td class="px-4 py-3.5">
+            <div class="relative rounded-md shadow-sm max-w-[120px]">
+              <input type="number" 
+                     id="rate-input-${index}" 
+                     data-status="${escapeHtml(status)}"
+                     value="${currentRate}" 
+                     min="0" max="100" 
+                     class="bg-slate-50 border border-slate-300 text-slate-800 text-xs font-black rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 block w-full p-2 pr-6 shadow-sm transition-all text-right">
+              <div class="absolute inset-y-0 right-0 pr-2 flex items-center pointer-events-none">
+                <span class="text-slate-400 text-[10px] font-bold">%</span>
+              </div>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      
+      if (sortedStatuses.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="2" class="px-4 py-8 text-center text-slate-400 font-medium">ステータスデータが存在しません</td></tr>`;
+      }
+    }
+
+    /**
+     * フロントエンドからデフォルト受注率の保存をトリガー
+     */
+    function saveRateSettings() {
+      const newRates = {};
+      const inputs = document.querySelectorAll('[id^="rate-input-"]');
+      inputs.forEach(input => {
+        const status = input.getAttribute('data-status');
+        const rate = parseFloat(input.value);
+        if (status) {
+          newRates[status] = isNaN(rate) ? 0 : Math.min(100, Math.max(0, rate));
+        }
+      });
+      
+      const isLocal = window.location.protocol === 'file:' || typeof google === 'undefined' || typeof google.script === 'undefined';
+      
+      document.getElementById('loading-screen').classList.remove('opacity-0', 'pointer-events-none');
+      
+      if (isLocal) {
+        mockResponse.simulationRates = newRates;
+        localStorage.setItem('mock_rates', JSON.stringify(newRates));
+        setTimeout(() => {
+          alert('【モック】デフォルト受注率設定を保存しました。');
+          closeMappingDialog();
+          refreshDashboardData();
+        }, 500);
+      } else {
+        google.script.run
+          .withSuccessHandler(() => {
+            alert('デフォルト受注率の設定値を保存しました。');
+            closeMappingDialog();
+            refreshDashboardData();
+          })
+          .withFailureHandler(err => {
+            alert('保存エラー: ' + err.message);
+            document.getElementById('loading-screen').classList.add('opacity-0', 'pointer-events-none');
+          })
+          .saveSimulationRates(newRates);
+      }
+    }
+
+    /**
+     * 外注費用の月フィルターを切り替え
+     */
+    function toggleOutsourcingMonthFilter(ym) {
+      if (selectedOutsourcingMonth === ym) {
+        selectedOutsourcingMonth = null;
+      } else {
+        selectedOutsourcingMonth = ym;
+      }
+      
+      // フィルターバッジの表示制御
+      const badge = document.getElementById('out-month-filter-badge');
+      const text = document.getElementById('out-month-filter-text');
+      if (badge && text) {
+        if (selectedOutsourcingMonth) {
+          text.innerText = `${selectedOutsourcingMonth} フィルタ中`;
+          badge.classList.remove('hidden');
+        } else {
+          badge.classList.add('hidden');
+        }
+      }
+      
+      processAndRender();
+    }
+    
+    /**
+     * 外注費用の月フィルターを解除
+     */
+    function clearOutMonthFilter() {
+      selectedOutsourcingMonth = null;
+      const badge = document.getElementById('out-month-filter-badge');
+      if (badge) badge.classList.add('hidden');
+      processAndRender();
+    }
+
+  </script>
+</body>
+</html>
