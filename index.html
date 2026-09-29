@@ -294,10 +294,10 @@
         </p>
         
         <form id="sim-form" class="space-y-4">
-          <!-- 受注確定フェーズ (6〜8) -->
+          <!-- 受注確定フェーズ (6〜9) -->
           <div class="p-3.5 bg-green-50/50 rounded-xl border border-green-100">
             <span class="text-[11px] font-bold text-green-700 block mb-2.5">
-              <i class="fa-solid fa-circle-check mr-1 text-green-600"></i> 受注確定フェーズ (6〜8)
+              <i class="fa-solid fa-circle-check mr-1 text-green-600"></i> 受注確定フェーズ (6〜9)
             </span>
             <div class="space-y-3" id="group-high"></div>
           </div>
@@ -347,7 +347,7 @@
           </div>
           <div class="mt-4 pt-3.5 border-t border-slate-100">
             <p class="text-[10px] font-bold text-slate-400 mb-1.5 flex items-center gap-1">
-              <i class="fa-solid fa-circle-check text-green-500"></i> 受注済（6〜8）内訳
+              <i class="fa-solid fa-circle-check text-green-500"></i> 受注済（6〜9）内訳
             </p>
             <div class="space-y-1.5 max-h-[120px] overflow-y-auto pr-1" id="step1-breakdown">
               <span class="text-[10px] text-slate-400">算出中...</span>
@@ -520,7 +520,7 @@
           
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div>
-              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">月別新規受注額推移 (5以下 → 6〜8)</span>
+              <span class="text-[10px] font-black text-slate-400 uppercase tracking-wider mb-2 block">月別新規受注額推移 (5以下 → 6〜9)</span>
               <div class="h-56 relative">
                 <canvas id="newOrdersChart"></canvas>
               </div>
@@ -547,7 +547,7 @@
             </div>
           </div>
           <div class="text-[9px] text-slate-400 mt-3 bg-slate-50 p-2 rounded-lg border border-slate-100 text-center font-bold">
-            ※未受注（5以下）から受注確定（6〜8）に変更された案件の月別金額集計および案件一覧
+            ※未受注（5以下）から受注確定（6〜9）に変更された案件の月別金額集計および案件一覧
           </div>
         </div>
 
@@ -742,7 +742,7 @@
     
     // シミュレーション受注率のデフォルト初期値
     const defaultSimulationRates = {
-      groupHigh: 100, // ステータス 6~8
+      groupHigh: 100, // ステータス 6~9
       groupMid: 80,   // ステータス 4~5
       groupLow: 30,   // ステータス 1~3
       groupOther: 0   // その他
@@ -763,7 +763,8 @@
         { id: 10, projectId: "PJ-010", clientCategory: "大手企業", clientName: "Jフィナンシャルグループ", summary: "DX人材育成研修", status: "6.受注確定", costCategory: "売上", billingMonth: "2027-01", amountExpected: 18000000, amountConfirmed: 18000000, year: "26年度" },
         { id: 11, projectId: "PJ-011", clientCategory: "スタートアップ", clientName: "Kロボティクス株式会社", summary: "自律走行AIアルゴリズム開発", status: "5.内諾獲得", costCategory: "売上", billingMonth: "2027-02", amountExpected: 28000000, amountConfirmed: 0, year: "26年度" },
         { id: 12, projectId: "PJ-012", clientCategory: "メガベンチャー", clientName: "Lコマース株式会社", summary: "物流最適化シミュレーション", status: "8.契約完了", costCategory: "売上", billingMonth: "2027-03", amountExpected: 40000000, amountConfirmed: 40000000, year: "26年度" },
-        { id: 20, projectId: "PJ-013", clientCategory: "中堅企業", clientName: "M製造株式会社", summary: "生産管理システムリプレイス（失注）", status: "9.失注", costCategory: "売上", billingMonth: "2026-08", amountExpected: 30000000, amountConfirmed: 0, year: "26年度" },
+        { id: 20, projectId: "PJ-013", clientCategory: "中堅企業", clientName: "M製造株式会社", summary: "生産管理システムリプレイス（失注）", status: "X.失注", costCategory: "売上", billingMonth: "2026-08", amountExpected: 30000000, amountConfirmed: 0, year: "26年度" },
+        { id: 21, projectId: "PJ-014", clientCategory: "中堅企業", clientName: "N物流株式会社", summary: "倉庫管理システム導入（請求済）", status: "9.請求完了", costCategory: "売上", billingMonth: "2026-06", amountExpected: 10000000, amountConfirmed: 10000000, year: "26年度" },
         
         { id: 13, projectId: "OUT-001", clientCategory: "パートナー", clientName: "株式会社パートナーA", summary: "PJ-001 開発外注費", status: "8.契約完了", costCategory: "外注費用", billingMonth: "2026-04", amountExpected: 15000000, amountConfirmed: 15000000, year: "26年度", vendor: "株式会社パートナーA", orderContent: "開発支援およびインフラ構築", estimateRequest: "見積依頼済 (15M)" },
         { id: 14, projectId: "OUT-002", clientCategory: "フリーランス", clientName: "契約エンジニア山田", summary: "PJ-002 AIアルゴリズム実装", status: "6.受注確定", costCategory: "外注費用", billingMonth: "2026-05", amountExpected: 5000000, amountConfirmed: 5000000, year: "26年度", vendor: "山田太郎", orderContent: "AIアルゴリズムモジュール開発", estimateRequest: "見積受領済 (5M)" },
@@ -805,7 +806,8 @@
         "6.受注確定": 100,
         "7.契約手続中": 100,
         "8.契約完了": 100,
-        "9.失注": 0
+        "9.請求完了": 100,
+        "X.失注": 0
       },
       changeHistory: [
         { timestamp: "2026-04-01T09:00:00.000Z", projectId: "PJ-001", clientCategory: "大手企業", clientName: "株式会社Aホールディングス", summary: "基幹システム刷新支援", oldStatus: "(初期登録)", newStatus: "8.契約完了", salesRep: "営業A", costCategory: "売上", billingMonth: "2026-04", amountExpected: 45000000, year: "26年度" },
@@ -913,6 +915,26 @@
       if (!status) return 0;
       const match = status.toString().match(/\d+/);
       return match ? parseInt(match[0], 10) : 0;
+    }
+
+    /**
+     * 受注済みステータス（6〜9。9.請求完了を含む）かを判定するヘルパー
+     * 「失注」を含むステータスは番号に関わらず受注扱いにしない
+     */
+    function isWonStatus(status) {
+      if (!status) return false;
+      const s = status.toString();
+      if (s.includes('失注')) return false;
+      return s.startsWith('6') || s.startsWith('7') || s.startsWith('8') || s.startsWith('9');
+    }
+
+    /**
+     * 失注ステータス（「失注」を含む、または X で始まる）かを判定するヘルパー
+     */
+    function isLostStatus(status) {
+      if (!status) return false;
+      const s = status.toString();
+      return s.includes('失注') || s.startsWith('X');
     }
 
     /**
@@ -1198,7 +1220,7 @@
         if (simulationRatesGlobal[status] !== undefined) {
           defaultVal = simulationRatesGlobal[status];
         } else {
-          if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+          if (isWonStatus(status)) {
             defaultVal = defaultSimulationRates.groupHigh;
           } else if (status.startsWith('4') || status.startsWith('5')) {
             defaultVal = defaultSimulationRates.groupMid;
@@ -1207,7 +1229,7 @@
           }
         }
         
-        if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+        if (isWonStatus(status)) {
           container = gHigh;
         } else if (status.startsWith('4') || status.startsWith('5')) {
           container = gMid;
@@ -1286,7 +1308,7 @@
           if (simulationRatesGlobal[status] !== undefined) {
             defaultVal = simulationRatesGlobal[status];
           } else {
-            if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+            if (isWonStatus(status)) {
               defaultVal = defaultSimulationRates.groupHigh;
             } else if (status.startsWith('4') || status.startsWith('5')) {
               defaultVal = defaultSimulationRates.groupMid;
@@ -1465,8 +1487,8 @@
             currentPipeline[item.status].amountExpectedWon += calculatedValue;
           }
           
-          // STEP 1 の判定: 6〜8 (受注確定)
-          if (item.status.startsWith('6') || item.status.startsWith('7') || item.status.startsWith('8')) {
+          // STEP 1 の判定: 6〜9 (受注確定。9.請求完了を含む)
+          if (isWonStatus(item.status)) {
             step1Total += calculatedValue;
             step1Breakdown[item.status] = (step1Breakdown[item.status] || 0) + calculatedValue;
           } 
@@ -1492,11 +1514,10 @@
             }
           }
           
-          // 取引先分類別 月別売上集計表（クロス集計）への加算（確度を掛けない生の想定金額、有効ステータス1〜8のみ）
-          const isTargetStatus = item.status.startsWith('1') || item.status.startsWith('2') || 
-                                 item.status.startsWith('3') || item.status.startsWith('4') || 
-                                 item.status.startsWith('5') || item.status.startsWith('6') || 
-                                 item.status.startsWith('7') || item.status.startsWith('8');
+          // 取引先分類別 月別売上集計表（クロス集計）への加算（確度を掛けない生の想定金額、有効ステータス1〜9のみ）
+          const isTargetStatus = item.status.startsWith('1') || item.status.startsWith('2') ||
+                                 item.status.startsWith('3') || item.status.startsWith('4') ||
+                                 item.status.startsWith('5') || isWonStatus(item.status);
           const cat = item.clientCategory ? item.clientCategory.toString().trim() : '未設定';
           if (isTargetStatus && crossTableData[cat] && monthIdx !== -1) {
             const ym = months[monthIdx];
@@ -1816,9 +1837,9 @@
           });
         }
         
-        // 新規受注（コンバージョン）の判定 (5以下から6,7,8に変更となった案件)
-        const isNewWon = item.newStatus.startsWith('6') || item.newStatus.startsWith('7') || item.newStatus.startsWith('8');
-        const isOldWon = item.oldStatus.startsWith('6') || item.oldStatus.startsWith('7') || item.oldStatus.startsWith('8');
+        // 新規受注（コンバージョン）の判定 (5以下から6〜9に変更となった案件)
+        const isNewWon = isWonStatus(item.newStatus);
+        const isOldWon = isWonStatus(item.oldStatus);
         const isConversionVal = isNewWon && !isOldWon;
         
         if (isConversionVal) {
@@ -1903,10 +1924,10 @@
           // ステータスに応じたトーン（グラデーションカラー）を設定して高級感を演出
           let colorTheme = 'from-blue-500/10 to-indigo-500/10 border-blue-200/50 text-blue-700';
           let badgeColor = 'bg-blue-50 text-blue-700 border-blue-100';
-          if (st.startsWith('6') || st.startsWith('7') || st.startsWith('8')) {
+          if (isWonStatus(st)) {
             colorTheme = 'from-emerald-500/10 to-teal-500/10 border-emerald-200/50 text-emerald-700';
             badgeColor = 'bg-emerald-50 text-emerald-700 border-emerald-100';
-          } else if (st.includes('失注') || st.includes('9')) {
+          } else if (isLostStatus(st)) {
             colorTheme = 'from-rose-500/10 to-orange-500/10 border-rose-200/50 text-rose-700';
             badgeColor = 'bg-rose-50 text-rose-700 border-rose-100';
           } else if (st.startsWith('4') || st.startsWith('5')) {
@@ -2102,8 +2123,8 @@
           // ステータスの上昇・下降判定
           const oldNum = getStatusNumber(act.oldStatus);
           const newNum = getStatusNumber(act.newStatus);
-          const isWon = act.newStatus.startsWith('6') || act.newStatus.startsWith('7') || act.newStatus.startsWith('8');
-          const isLost = act.newStatus.includes('失注') || act.newStatus.startsWith('9');
+          const isWon = isWonStatus(act.newStatus);
+          const isLost = isLostStatus(act.newStatus);
           
           let trendIcon = '';
           let badgeTheme = 'bg-slate-50 text-slate-600 border-slate-200';
@@ -2679,7 +2700,7 @@
         if (simulationRatesGlobal[status] !== undefined) {
           currentRate = simulationRatesGlobal[status];
         } else {
-          if (status.startsWith('6') || status.startsWith('7') || status.startsWith('8')) {
+          if (isWonStatus(status)) {
             currentRate = defaultSimulationRates.groupHigh;
           } else if (status.startsWith('4') || status.startsWith('5')) {
             currentRate = defaultSimulationRates.groupMid;

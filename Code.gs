@@ -432,7 +432,9 @@ function getSimulationRatesOrInit() {
     var defaultConfig = [['ステータス', 'デフォルト受注率（%）']];
     uniqueStatuses.forEach(function(status) {
       var defaultRate = 0;
-      if (status.indexOf('6') === 0 || status.indexOf('7') === 0 || status.indexOf('8') === 0) {
+      // 6〜9（9.請求完了を含む）は受注扱い。ただし「失注」を含むものは除く
+      if (status.indexOf('失注') === -1 &&
+          (status.indexOf('6') === 0 || status.indexOf('7') === 0 || status.indexOf('8') === 0 || status.indexOf('9') === 0)) {
         defaultRate = 100;
       } else if (status.indexOf('4') === 0 || status.indexOf('5') === 0) {
         defaultRate = 80;
@@ -447,7 +449,8 @@ function getSimulationRatesOrInit() {
       defaultConfig.push(['1.アプローチ中', 30]);
       defaultConfig.push(['4.提案中', 80]);
       defaultConfig.push(['6.受注確定', 100]);
-      defaultConfig.push(['9.失注', 0]);
+      defaultConfig.push(['9.請求完了', 100]);
+      defaultConfig.push(['X.失注', 0]);
     }
     
     sheet.getRange(1, 1, defaultConfig.length, defaultConfig[0].length).setValues(defaultConfig);
